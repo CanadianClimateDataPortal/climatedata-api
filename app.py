@@ -81,3 +81,64 @@ def get_values():
 @app.route('/download_csv.php')
 def download_csv():
     return get_dataset_values(request.args, {'orient': 'index', 'date_format': 'iso', 'date_unit': 's'}, download=True)
+
+@app.route('/get_location_values_allyears.php')
+def get_location_values_allyears():
+    try:
+        lati = float(request.args['lat'])
+        loni = float(request.args['lon'])
+    except (ValueError, BadRequestKeyError, KeyError):
+        return "Bad request", 400
+
+    anusplin_dataset = xr.open_dataset(app.config['NETCDF_ROOT_FOLDER'] + "/locations/SearchLocation_30yAvg_anusplin_nrcan_canada_tg_mean_prcptot_YS.nc")
+
+    anusplin_1950_location_slice = anusplin_dataset.sel(time='1950-01-01', lat=lati, lon=loni, method='nearest')
+    anusplin_1980_location_slice = anusplin_dataset.sel(time='1980-01-01', lat=lati, lon=loni, method='nearest')
+    anusplin_2005_location_slice = anusplin_dataset.sel(time='2005-01-01', lat=lati, lon=loni, method='nearest')
+
+    anusplin_1950_temp = float(anusplin_1950_location_slice.tg_mean.values)
+    anusplin_1950_temp = anusplin_1950_temp - 273.15
+    anusplin_1950_temp = round(anusplin_1950_temp, 1)
+
+    anusplin_1980_precip = float(anusplin_1980_location_slice.prcptot.values)
+    anusplin_1980_precip = round(anusplin_1980_precip)
+
+    anusplin_2005_temp = float(anusplin_2005_location_slice.tg_mean.values)
+    anusplin_2005_temp = anusplin_2005_temp - 273.15
+    anusplin_2005_temp = round(anusplin_2005_temp, 1)
+
+    bcc_dataset = xr.open_dataset(app.config['NETCDF_ROOT_FOLDER'] + "/locations/SearchLocation_30yAvg_wDeltas_BCCAQv2+ANUSPLIN300_rcp85_tg_mean_prcptot_YS.nc")
+
+    bcc_2020_location_slice = bcc_dataset.sel(time='2020-01-01', lat=lati, lon=loni, method='nearest')
+    bcc_2050_location_slice = bcc_dataset.sel(time='2050-01-01', lat=lati, lon=loni, method='nearest')
+    bcc_2090_location_slice = bcc_dataset.sel(time='2090-01-01', lat=lati, lon=loni, method='nearest')
+
+    bcc_2020_temp = float(bcc_2020_location_slice.tg_mean_p50.values)
+    bcc_2020_temp = bcc_2020_temp - 273.15
+    bcc_2020_temp = round(bcc_2020_temp, 1)
+    bcc_2020_precip = float(bcc_2020_location_slice.delta_prcptot_p50_vs_7100.values)
+    bcc_2020_precip = round(bcc_2020_precip)
+
+    bcc_2050_temp = float(bcc_2050_location_slice.tg_mean_p50.values)
+    bcc_2050_temp = bcc_2050_temp - 273.15
+    bcc_2050_temp = round(bcc_2050_temp, 1)
+    bcc_2050_precip = float(bcc_2050_location_slice.delta_prcptot_p50_vs_7100.values)
+    bcc_2050_precip = round(bcc_2050_precip)
+
+    bcc_2090_temp = float(bcc_2090_location_slice.tg_mean_p50.values)
+    bcc_2090_temp = bcc_2090_temp - 273.15
+    bcc_2090_temp = round(bcc_2090_temp, 1)
+    bcc_2090_precip = float(bcc_2090_location_slice.delta_prcptot_p50_vs_7100.values)
+    bcc_2090_precip = round(bcc_2090_precip)
+
+    return {
+        "anusplin_1950_temp": anusplin_1950_temp,
+        "anusplin_2005_temp": anusplin_2005_temp,
+        "anusplin_1980_precip": anusplin_1980_precip,
+        "bcc_2020_temp": bcc_2020_temp,
+        "bcc_2050_temp": bcc_2050_temp,
+        "bcc_2090_temp": bcc_2090_temp,
+        "bcc_2020_precip": bcc_2020_precip,
+        "bcc_2050_precip": bcc_2050_precip,
+        "bcc_2090_precip": bcc_2090_precip
+    }
