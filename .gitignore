@@ -2,3 +2,4 @@
 __pycache__
 .idea
 netcdfs
+local_settings.py
