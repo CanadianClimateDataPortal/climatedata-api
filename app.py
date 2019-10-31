@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from werkzeug.exceptions import BadRequestKeyError
 import sentry_sdk
 import xarray as xr
@@ -6,6 +6,7 @@ import pandas as pd
 import sys
 import glob
 import sentry_sdk
+from textwrap import dedent
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 
@@ -57,30 +58,34 @@ def get_dataset_values(args, json_format, download=False):
     json_frame = dropped_data_frame.to_json(**json_format)
     if download:
         if msys == 'YS':
-            return """[{{"variable": "{var}",
-"calculated": "by year",
-"latitude": {lat},
-"longitude": {lon}}},
-{{"data":
-""".format(var=var,lat=lati, lon=loni) + json_frame + '}]'
+            return dedent("""\
+                [{{"variable": "{var}",
+                "calculated": "by year",
+                "latitude": {lat},
+                "longitude": {lon}}},
+                {{"data":
+                """.format(var=var,lat=lati, lon=loni)) + json_frame + '}]'
         else:
-            return """[{{"variable": "{var}",
-"calculated": "by month",
-"month": "{month}",
-"latitude": {lat},
-"longitude": {lon}}},
-{{"data":
-""".format(var=var, lat=lati, lon=loni, month=app.config['MONTH_OUTPUT_LUT'][month]) + json_frame + '}]'
+            return dedent("""\
+                [{{"variable": "{var}",
+                "calculated": "by month",
+                "month": "{month}",
+                "latitude": {lat},
+                "longitude": {lon}}},
+                {{"data":
+                """.format(var=var, lat=lati, lon=loni, month=app.config['MONTH_OUTPUT_LUT'][month])) + json_frame + '}]'
     else:
         return json_frame
 
 @app.route('/get_values.php')
 def get_values():
-    return get_dataset_values(request.args, {'orient': 'values', 'date_format': 'epoch', 'date_unit': 's'})
+    return Response(get_dataset_values(request.args, {'orient': 'values', 'date_format': 'epoch', 'date_unit': 's'}),
+                    mimetype='application/json')
 
 @app.route('/download_csv.php')
 def download_csv():
-    return get_dataset_values(request.args, {'orient': 'index', 'date_format': 'iso', 'date_unit': 's'}, download=True)
+    return Response(get_dataset_values(request.args, {'orient': 'index', 'date_format': 'iso', 'date_unit': 's'}, download=True),
+                    mimetype='application/json')
 
 @app.route('/get_location_values_allyears.php')
 def get_location_values_allyears():
