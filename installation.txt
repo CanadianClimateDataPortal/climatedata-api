@@ -1,0 +1,111 @@
+# installation using nginx and uwsgi
+
+
+# install required packages (as root)
+yum install nginx python36-virtualenv
+
+# configure nginx
+vim /etc/nginx/nginx.conf   ### comment location / { }
+
+cat <<EOF > /etc/nginx/default.d/climatedata-api.conf
+listen 443 default_server ssl;
+server_name data.climatedata.ca;
+
+ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256';
+ssl_certificate /etc/nginx/data.climatedata.ca.pem;
+ssl_certificate_key /etc/nginx/data.climatedata.ca.pem;
+
+
+location /robots.txt {
+    root /home/uwsgi/climatedata-api/static;
+}
+
+location / {
+    include uwsgi_params;
+    uwsgi_pass unix:/home/uwsgi/run/uwsgi.sock;
+    add_header 'Access-Control-Allow-Origin' '*';
+}
+
+location /geoserver/ {
+    proxy_pass http://127.0.0.1:8080/geoserver/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+
+EOF
+
+cat /etc/letsencrypt/live/data.climatedata.ca/{cert,chain,privkey}.pem > /etc/nginx/data.climatedata.ca.pem
+
+
+# check nginx config
+nginx -t
+
+# create uwsgi user
+useradd uwsgi -m -G nginx
+chmod 0755 /home/uwsgi
+
+
+# as uwsgi user  (sudo -u uwsgi -i)
+# clone this project in ~/
+cd ~
+git clone https://www.crim.ca/stash/scm/ccsc/climatedata-api.git
+
+
+# create virtualenv
+virtualenv-3.6 ~/venv-climatedata-api
+source ~/venv-climatedata-api/bin/activate
+pip install -r ~/climatedata-api/requirements.txt
+pip install uwsgi
+
+# configure local settings
+cat <<EOF  > ~/climatedata-api/local_settings.py
+DEBUG = False
+NETCDF_ROOT_FOLDER = "/mnt/8tbsata/netcdfs/"
+SENTRY_DSN = "<fill this in>"
+EOF
+
+# test application
+cd ~/climatedata-api
+uwsgi --socket 0.0.0.0:5000 --protocol=http -w wsgi:app
+CLIMATEDATA_FLASK_SETTINGS=local_settings.py uwsgi --socket 0.0.0.0:5000 --protocol=http -w wsgi:app
+curl "http://localhost:5000/get_location_values_allyears.php?lat=46.3333334&lon=-72.5166667"
+
+
+### switch back to root ###
+# selinux fixes
+semanage fcontext -a -t httpd_sys_content_t  '/home/uwsgi/climatedata-api(/.*)?'
+semanage fcontext -a -t httpd_exec_t '/home/uwsgi/venv-climatedata-api/bin/uwsgi'
+semanage fcontext -a -t httpd_sys_content_rw_t  '/home/uwsgi/run(/.*)?'
+semanage fcontext -a -t lib_t  '/home/uwsgi/venv-climatedata-api(/.*)?'
+
+restorecon /home/uwsgi -R
+
+# as root, install the service
+cat <<EOF > /etc/systemd/system/climatedata-api.service
+[Unit]
+Description=uWSGI instance to serve climatedata-api
+After=network.target
+
+[Service]
+User=uwsgi
+Group=nginx
+WorkingDirectory=/home/uwsgi/climatedata-api
+Environment="PATH=/home/uwsgi/venv-climatedata-api/bin"
+ExecStart=/home/uwsgi/venv-climatedata-api/bin/uwsgi --ini uwsgi.ini
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl start climatedata-api
+
+# check logs and daemon status
+systemctl status climatedata-api
+
+# stop and disable apache
+systemctl stop httpd
+systemctl disable httpd
+
+systemctl start nginx

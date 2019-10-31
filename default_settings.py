@@ -53,3 +53,19 @@ MONTH_LUT= {
     'dec': ('_12December', 'MS'),
     'ann': ('', 'YS')
 }
+
+MONTH_OUTPUT_LUT= {
+    'jan': 'January',
+    'feb': 'February',
+    'mar': 'March',
+    'apr': 'April',
+    'may': 'May',
+    'jun': 'June',
+    'jul': 'July',
+    'aug': 'August',
+    'sep': 'September',
+    'oct': 'October',
+    'nov': 'November',
+    'dec': 'December',
+    'ann': ''
+}
