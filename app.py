@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify
+import json
 from werkzeug.exceptions import BadRequestKeyError
 import sentry_sdk
 import xarray as xr
@@ -79,13 +80,11 @@ def get_dataset_values(args, json_format, download=False):
 
 @app.route('/get_values.php')
 def get_values():
-    return Response(get_dataset_values(request.args, {'orient': 'values', 'date_format': 'epoch', 'date_unit': 's'}),
-                    mimetype='application/json')
+    return get_dataset_values(request.args, {'orient': 'values', 'date_format': 'epoch', 'date_unit': 's'})
 
 @app.route('/download_csv.php')
 def download_csv():
-    return Response(get_dataset_values(request.args, {'orient': 'index', 'date_format': 'iso', 'date_unit': 's'}, download=True),
-                    mimetype='application/json')
+    return get_dataset_values(request.args, {'orient': 'index', 'date_format': 'iso', 'date_unit': 's'}, download=True)
 
 @app.route('/get_location_values_allyears.php')
 def get_location_values_allyears():
@@ -136,7 +135,7 @@ def get_location_values_allyears():
     bcc_2090_precip = float(bcc_2090_location_slice.delta_prcptot_p50_vs_7100.values)
     bcc_2090_precip = round(bcc_2090_precip)
 
-    return {
+    return json.dumps({
         "anusplin_1950_temp": anusplin_1950_temp,
         "anusplin_2005_temp": anusplin_2005_temp,
         "anusplin_1980_precip": anusplin_1980_precip,
@@ -146,4 +145,4 @@ def get_location_values_allyears():
         "bcc_2020_precip": bcc_2020_precip,
         "bcc_2050_precip": bcc_2050_precip,
         "bcc_2090_precip": bcc_2090_precip
-    }
+    })
