@@ -1,9 +1,12 @@
 DEBUG = True
 
+SENTRY_ENV="dev"
+
 NETCDF_FILENAME_FORMATS=["{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{msys}{month}.nc",
                          "{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1950-2100_{var}_{msys}{month}.nc"]
 
 NETCDF_ROOT_FOLDER="./netcdfs"
+NETCDF_LOCATIONS_FOLDER="./netcdfs/locations"
 
 VARIABLES = ['cddcold_18',
              'frost_days',
@@ -11,10 +14,7 @@ VARIABLES = ['cddcold_18',
              'gddgrow_10',
              'gddgrow_5',
              'hddheat_17',
-             'heat_wave_frequency_Tmin20_Tmax30',
-             'heat_wave_max_length_Tmin20_Tmax30',
              'ice_days',
-             'locations',
              'prcptot',
              'r10mm',
              'r1mm',
@@ -23,7 +23,6 @@ VARIABLES = ['cddcold_18',
              'tg_mean',
              'tnlt_-15',
              'tnlt_-25',
-             'tn_max',
              'tn_mean',
              'tn_min',
              'tr_18',
@@ -35,8 +34,7 @@ VARIABLES = ['cddcold_18',
              'txgt_30',
              'txgt_32',
              'tx_max',
-             'tx_mean',
-             'tx_min']
+             'tx_mean']
 
 MONTH_LUT= {
     'jan':('_01January','MS'),

@@ -18,6 +18,7 @@ app.config.from_envvar('CLIMATEDATA_FLASK_SETTINGS', silent=True)
 if 'SENTRY_DSN' in app.config:
     sentry_sdk.init(
         app.config['SENTRY_DSN'],
+        environment=app.config['SENTRY_ENV'],
         integrations=[FlaskIntegration()]
     )
 
@@ -94,7 +95,7 @@ def get_location_values_allyears():
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-    anusplin_dataset = xr.open_dataset(app.config['NETCDF_ROOT_FOLDER'] + "/locations/SearchLocation_30yAvg_anusplin_nrcan_canada_tg_mean_prcptot_YS.nc")
+    anusplin_dataset = xr.open_dataset(app.config['NETCDF_LOCATIONS_FOLDER'] + "/SearchLocation_30yAvg_anusplin_nrcan_canada_tg_mean_prcptot_YS.nc")
 
     anusplin_1950_location_slice = anusplin_dataset.sel(time='1950-01-01', lat=lati, lon=loni, method='nearest')
     anusplin_1980_location_slice = anusplin_dataset.sel(time='1980-01-01', lat=lati, lon=loni, method='nearest')
@@ -111,7 +112,7 @@ def get_location_values_allyears():
     anusplin_2005_temp = anusplin_2005_temp - 273.15
     anusplin_2005_temp = round(anusplin_2005_temp, 1)
 
-    bcc_dataset = xr.open_dataset(app.config['NETCDF_ROOT_FOLDER'] + "/locations/SearchLocation_30yAvg_wDeltas_BCCAQv2+ANUSPLIN300_rcp85_tg_mean_prcptot_YS.nc")
+    bcc_dataset = xr.open_dataset(app.config['NETCDF_LOCATIONS_FOLDER'] + "/SearchLocation_30yAvg_wDeltas_BCCAQv2+ANUSPLIN300_rcp85_tg_mean_prcptot_YS.nc")
 
     bcc_2020_location_slice = bcc_dataset.sel(time='2020-01-01', lat=lati, lon=loni, method='nearest')
     bcc_2050_location_slice = bcc_dataset.sel(time='2050-01-01', lat=lati, lon=loni, method='nearest')
