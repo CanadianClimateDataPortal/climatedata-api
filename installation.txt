@@ -28,9 +28,9 @@ location / {
 
 location /geoserver/ {
     proxy_pass http://127.0.0.1:8080/geoserver/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
 }
 
 EOF
@@ -49,6 +49,7 @@ chmod 0755 /home/uwsgi
 # as uwsgi user  (sudo -u uwsgi -i)
 # clone this project in ~/
 cd ~
+mkdir /home/uwsgi/run
 git clone https://www.crim.ca/stash/scm/ccsc/climatedata-api.git
 
 
@@ -67,7 +68,6 @@ EOF
 
 # test application
 cd ~/climatedata-api
-uwsgi --socket 0.0.0.0:5000 --protocol=http -w wsgi:app
 CLIMATEDATA_FLASK_SETTINGS=local_settings.py uwsgi --socket 0.0.0.0:5000 --protocol=http -w wsgi:app
 curl "http://localhost:5000/get_location_values_allyears.php?lat=46.3333334&lon=-72.5166667"
 
@@ -76,10 +76,31 @@ curl "http://localhost:5000/get_location_values_allyears.php?lat=46.3333334&lon=
 # selinux fixes
 semanage fcontext -a -t httpd_sys_content_t  '/home/uwsgi/climatedata-api(/.*)?'
 semanage fcontext -a -t httpd_exec_t '/home/uwsgi/venv-climatedata-api/bin/uwsgi'
-semanage fcontext -a -t httpd_sys_content_rw_t  '/home/uwsgi/run(/.*)?'
+semanage fcontext -a -t httpd_var_run_t  '/home/uwsgi/run(/.*)?'
 semanage fcontext -a -t lib_t  '/home/uwsgi/venv-climatedata-api(/.*)?'
 
 restorecon /home/uwsgi -R
+
+cd /tmp
+
+cat <<EOF > httpd_proc_read.te
+module httpd_proc_read 1.0;
+
+require {
+        type httpd_t;
+        type sysctl_net_t;
+        class file { open read };
+}
+
+#============= httpd_t ==============
+allow httpd_t sysctl_net_t:file { open read };
+
+EOF
+
+checkmodule -M -m -o httpd_proc_read.mod httpd_proc_read.te
+semodule_package -o httpd_proc_read.pp -m httpd_proc_read.mod
+semodule -i httpd_proc_read.pp
+
 
 # as root, install the service
 cat <<EOF > /etc/systemd/system/climatedata-api.service
@@ -99,13 +120,16 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
+systemctl enable climatedata-api
 systemctl start climatedata-api
 
 # check logs and daemon status
 systemctl status climatedata-api
 
 # stop and disable apache
-systemctl stop httpd
+systemctl stop httpd; systemctl start nginx
 systemctl disable httpd
+systemctl enable nginx
 
-systemctl start nginx
+systemctl stop php-fpm
+systemctl disable php-fpm
