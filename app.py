@@ -27,17 +27,74 @@ pd.set_option('display.max_rows', 10000)
 
 
 
-def open_dataset(var, msys, month):
-    for filename in app.config['NETCDF_FILENAME_FORMATS']:
+def open_dataset(var, msys, month, formats, root):
+    for filename in formats:
         try:
-            dataseturl = filename.format(root=app.config['NETCDF_ROOT_FOLDER'],
+            dataseturl = filename.format(root=root,
                                    var=var,
                                    msys=msys,
                                    month=month)
-            return xr.open_dataset(dataseturl, decode_times=False)
+
+            dataset=  xr.open_dataset(dataseturl, decode_times=False)
+            dataset['time'] = xr.decode_cf(dataset).time
+            return dataset
         except FileNotFoundError:
             pass
     raise FileNotFoundError("Dataset not found")
+
+
+"""
+Converts xarray dataset to a list. 
+We assume that the coordinates are timestamps, which are converted to miliseconds since 1970-01-01 (integer)
+"""
+def convert_dataset_to_list(dataset):
+    return [[int(a[0].timestamp()*1000)] +a[1:] for a in dataset.to_dataframe().reset_index().values.tolist()]
+
+
+
+"""
+    Rewrite of get_values, generating a JSON ready for highcharts 
+"""
+@app.route('/generate-charts/<lat>/<lon>/<var>/<month>')
+@app.route('/generate-charts/<lat>/<lon>/<var>')
+def generate_charts(var, lat, lon, month='ann'):
+    try:
+        lati = float(lat)
+        loni = float(lon)
+        monthpath,msys = app.config['MONTH_LUT'][month]
+        if var not in app.config['VARIABLES']:
+            raise ValueError
+    except (ValueError, BadRequestKeyError, KeyError):
+        return "Bad request", 400
+
+
+
+    anusplin_dataset = open_dataset(var, msys, monthpath,
+                                    app.config['NETCDF_ANUSPLINV1_FILENAME_FORMATS'],
+                                    app.config['NETCDF_ANUSPLINV1_YEARLY_FOLDER'])
+    anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
+    if anusplin_location_slice[var].attrs.get('units') == 'K':
+        anusplin_location_slice = anusplin_location_slice - 273.15
+
+    observations_max = anusplin_dataset['time'].max()
+    bccaq_dataset = open_dataset(var, msys, monthpath,
+                                 app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
+                                 app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
+    # TODO-to-validate: even if bccaq and anusplin has the same grid, because of rounding issues
+    # there are some edge cases where the bccaq slice may not geographically match the anusplin slice
+    bccaq_location_slice = bccaq_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
+    if bccaq_location_slice['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
+        bccaq_location_slice = bccaq_location_slice - 273.15
+
+    # we only return values not included in observed
+    bccaq_location_slice = bccaq_location_slice.where(bccaq_location_slice.time >= observations_max, drop=True)
+    return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
+    for model in app.config['MODELS']:
+        return_values[model + '_median'] = convert_dataset_to_list(bccaq_location_slice['{}_{}_p50'.format(model, var)])
+        return_values[model + '_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice['{}_{}_p10'.format(model, var)],
+                                                          bccaq_location_slice['{}_{}_p90'.format(model, var)]]))
+    return  return_values
+
 
 
 def get_dataset_values(args, json_format, download=False):
@@ -52,8 +109,9 @@ def get_dataset_values(args, json_format, download=False):
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-    dataset = open_dataset(var, msys, monthpath)
-    dataset['time'] = xr.decode_cf(dataset).time
+    dataset = open_dataset(var, msys, monthpath,
+                           app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
+                           app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest')
     data_frame = location_slice.to_dataframe()
     dropped_data_frame = data_frame.drop(columns=['lon', 'lat'], axis=1)

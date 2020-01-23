@@ -22,6 +22,8 @@ location /robots.txt {
 
 location / {
     include uwsgi_params;
+    gzip on;
+    gzip_types text/html application/json;
     uwsgi_pass unix:/home/uwsgi/run/uwsgi.sock;
     add_header 'Access-Control-Allow-Origin' '*';
 }
