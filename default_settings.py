@@ -13,6 +13,8 @@ NETCDF_LOCATIONS_FOLDER="./netcdfs/locations"
 
 MODELS=['rcp26', 'rcp45', 'rcp85']
 
+HISTORICAL_DATE_LIMIT = '2005-01-01'
+
 VARIABLES = ['cddcold_18',
              'frost_days',
              'gddgrow_0',

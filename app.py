@@ -4,6 +4,7 @@ from werkzeug.exceptions import BadRequestKeyError
 import sentry_sdk
 import xarray as xr
 import pandas as pd
+import numpy as np
 import sys
 import glob
 import sentry_sdk
@@ -76,7 +77,6 @@ def generate_charts(var, lat, lon, month='ann'):
     if anusplin_location_slice[var].attrs.get('units') == 'K':
         anusplin_location_slice = anusplin_location_slice - 273.15
 
-    observations_max = anusplin_dataset['time'].max()
     bccaq_dataset = open_dataset(var, msys, monthpath,
                                  app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
                                  app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
@@ -86,9 +86,16 @@ def generate_charts(var, lat, lon, month='ann'):
     if bccaq_location_slice['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
         bccaq_location_slice = bccaq_location_slice - 273.15
 
-    # we only return values not included in observed
-    bccaq_location_slice = bccaq_location_slice.where(bccaq_location_slice.time >= observations_max, drop=True)
     return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
+
+    # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
+    bccaq_location_slice_historical = bccaq_location_slice.where(bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT']), drop=True)
+    return_values['modeled_historical_median'] = convert_dataset_to_list(bccaq_location_slice_historical['rcp26_{}_p50'.format(var)])
+    return_values['modeled_historical_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice_historical['rcp26_{}_p10'.format(var)],
+                                                                                  bccaq_location_slice_historical['rcp26_{}_p90'.format(var)]]))
+    # we return values in historical for all models after HISTORICAL_DATE_LIMIT
+    bccaq_location_slice = bccaq_location_slice.where(bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT']), drop=True)
+
     for model in app.config['MODELS']:
         return_values[model + '_median'] = convert_dataset_to_list(bccaq_location_slice['{}_{}_p50'.format(model, var)])
         return_values[model + '_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice['{}_{}_p10'.format(model, var)],
