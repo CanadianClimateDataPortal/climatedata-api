@@ -49,7 +49,7 @@ Converts xarray dataset to a list.
 We assume that the coordinates are timestamps, which are converted to miliseconds since 1970-01-01 (integer)
 """
 def convert_dataset_to_list(dataset):
-    return [[int(a[0].timestamp()*1000)] +a[1:] for a in dataset.to_dataframe().round(2).reset_index().values.tolist()]
+    return [[int(a[0].timestamp()*1000)] +a[1:] for a in dataset.to_dataframe().astype('float64').round(2).reset_index().values.tolist()]
 
 
 
