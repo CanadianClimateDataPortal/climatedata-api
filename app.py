@@ -89,12 +89,12 @@ def generate_charts(var, lat, lon, month='ann'):
     return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
 
     # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
-    bccaq_location_slice_historical = bccaq_location_slice.where(bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT']), drop=True)
+    bccaq_location_slice_historical = bccaq_location_slice.where(bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
     return_values['modeled_historical_median'] = convert_dataset_to_list(bccaq_location_slice_historical['rcp26_{}_p50'.format(var)])
     return_values['modeled_historical_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice_historical['rcp26_{}_p10'.format(var)],
                                                                                   bccaq_location_slice_historical['rcp26_{}_p90'.format(var)]]))
     # we return values in historical for all models after HISTORICAL_DATE_LIMIT
-    bccaq_location_slice = bccaq_location_slice.where(bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT']), drop=True)
+    bccaq_location_slice = bccaq_location_slice.where(bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
 
     for model in app.config['MODELS']:
         return_values[model + '_median'] = convert_dataset_to_list(bccaq_location_slice['{}_{}_p50'.format(model, var)])
