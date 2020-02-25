@@ -9,6 +9,7 @@ import glob
 import sentry_sdk
 from textwrap import dedent
 from sentry_sdk.integrations.flask import FlaskIntegration
+import requests
 
 
 app = Flask(__name__)
@@ -147,3 +148,22 @@ def get_location_values_allyears():
         "bcc_2050_precip": bcc_2050_precip,
         "bcc_2090_precip": bcc_2090_precip
     })
+
+"""
+    Check server status (geoserver + this app)
+    Return 200 OK if everything is fine
+    Return 500 if one component is broken
+"""
+@app.route('/status')
+def check_status():
+    for check in app.config['SYSTEM_CHECKS']:
+        try:
+            r = requests.get(check['URL'].format(app.config['SYSTEM_CHECKS_HOST']))
+            assert r.status_code == 200
+            check['validator'](r.content)
+        except Exception as ex:
+            if app.config['DEBUG']:
+                raise ex
+            else:
+                return "Test {} failed.<br> Message: {}".format(check['name'], ex), 500
+    return "All checks successful",200
