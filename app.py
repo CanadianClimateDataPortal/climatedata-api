@@ -43,6 +43,13 @@ def open_dataset(var, msys, month, formats, root):
             pass
     raise FileNotFoundError("Dataset not found")
 
+def open_dataset(path):
+        try:
+            dataset=  xr.open_dataset(path, decode_times=False)
+            dataset['time'] = xr.decode_cf(dataset).time
+            return dataset
+        except FileNotFoundError:
+            raise FileNotFoundError("Dataset not found")
 
 """
 Converts xarray dataset to a list. 
@@ -102,6 +109,61 @@ def generate_charts(var, lat, lon, month='ann'):
                                                           bccaq_location_slice['{}_{}_p90'.format(model, var)]]))
     return  return_values
 
+"""
+    Get data for specific region
+"""
+@app.route('/generate-regional-charts/<partition>/<index>/<var>/<month>')
+@app.route('/generate-regional-charts/<partition>/<index>/<var>')
+def generate_regional_charts(var, partition, index, month='ann'):
+    try:
+        indexi = int(index)
+        msys = "YS" if month == "ann" else "MS"
+        monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+        if var not in app.config['VARIABLES']:
+            raise ValueError
+        dataset_path = app.config['PARTITIONS_PATH_FORMATS'][partition].format(
+            root=app.config['PARTITIONS_FOLDER'][partition],
+            var=var,
+            msys=msys)
+    except (ValueError, BadRequestKeyError, KeyError):
+        return "Bad request", 400
+
+
+
+#    anusplin_dataset = open_dataset(var, msys, monthpath,
+#                                    app.config['NETCDF_ANUSPLINV1_FILENAME_FORMATS'],
+#                                    app.config['NETCDF_ANUSPLINV1_YEARLY_FOLDER'])
+#    anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
+#    if anusplin_location_slice[var].attrs.get('units') == 'K':
+#        anusplin_location_slice = anusplin_location_slice - 273.15
+
+    bccaq_dataset = open_dataset(dataset_path)
+    bccaq_location_slice = bccaq_dataset.sel(region= indexi).drop(['CSDUID','region'])
+
+    # we filter the appropriate month from the MS-allyears file
+    if monthnumber > 0:
+        bccaq_location_slice= bccaq_location_slice.isel(time=bccaq_location_slice.groupby('time.month').groups[monthnumber])
+
+    if bccaq_location_slice['{}_rcp26_p50'.format(var)].attrs.get('units') == 'K':
+        bccaq_location_slice = bccaq_location_slice - 273.15
+    return_values ={'observations': []}
+#   return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
+
+
+
+    # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
+    bccaq_location_slice_historical = bccaq_location_slice.where(bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
+    return_values['modeled_historical_median'] = convert_dataset_to_list(bccaq_location_slice_historical['{}_rcp26_p50'.format(var)])
+    return_values['modeled_historical_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice_historical['{}_rcp26_p10'.format(var)],
+                                                                                  bccaq_location_slice_historical['{}_rcp26_p90'.format(var)]]))
+    # we return values in historical for all models after HISTORICAL_DATE_LIMIT
+    bccaq_location_slice = bccaq_location_slice.where(bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
+
+    for model in app.config['MODELS']:
+        return_values[model + '_median'] = convert_dataset_to_list(bccaq_location_slice['{}_{}_p50'.format(var, model)])
+        return_values[model + '_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice['{}_{}_p10'.format(var, model)],
+                                                          bccaq_location_slice['{}_{}_p90'.format(var, model)]]))
+    return  return_values
 
 
 def get_dataset_values(args, json_format, download=False):
