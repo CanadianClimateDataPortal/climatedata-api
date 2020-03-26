@@ -43,7 +43,7 @@ def open_dataset(var, msys, month, formats, root):
             pass
     raise FileNotFoundError("Dataset not found")
 
-def open_dataset(path):
+def open_dataset_by_path(path):
         try:
             dataset=  xr.open_dataset(path, decode_times=False)
             dataset['time'] = xr.decode_cf(dataset).time
@@ -137,7 +137,7 @@ def generate_regional_charts(var, partition, index, month='ann'):
 #    if anusplin_location_slice[var].attrs.get('units') == 'K':
 #        anusplin_location_slice = anusplin_location_slice - 273.15
 
-    bccaq_dataset = open_dataset(dataset_path)
+    bccaq_dataset = open_dataset_by_path(dataset_path)
     bccaq_location_slice = bccaq_dataset.sel(region= indexi).drop(['CSDUID','region'])
 
     # we filter the appropriate month from the MS-allyears file
