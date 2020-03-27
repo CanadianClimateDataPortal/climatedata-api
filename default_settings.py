@@ -89,9 +89,10 @@ MONTH_NUMBER_LUT = {
     'oct': 10,
     'nov': 11,
     'dec': 12,
-    'ann': 0
+    'ann': 1
 }
 
 PARTITIONS_FOLDER = {'municipal': './netcdfs'}
 
-PARTITIONS_PATH_FORMATS = {'municipal': "{root}/{var}/{msys}/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc"}
+PARTITIONS_PATH_FORMATS = {'municipal': {'allyears': "{root}/{var}/{msys}/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
+                                         'means': "{root}/{var}/{msys}/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc"}}

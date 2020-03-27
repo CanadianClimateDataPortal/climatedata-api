@@ -114,14 +114,14 @@ def generate_charts(var, lat, lon, month='ann'):
 """
 @app.route('/generate-regional-charts/<partition>/<index>/<var>/<month>')
 @app.route('/generate-regional-charts/<partition>/<index>/<var>')
-def generate_regional_charts(var, partition, index, month='ann'):
+def generate_regional_charts(partition, index, var, month='ann'):
     try:
         indexi = int(index)
         msys = "YS" if month == "ann" else "MS"
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
-        dataset_path = app.config['PARTITIONS_PATH_FORMATS'][partition].format(
+        dataset_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['allyears'].format(
             root=app.config['PARTITIONS_FOLDER'][partition],
             var=var,
             msys=msys)
@@ -141,7 +141,7 @@ def generate_regional_charts(var, partition, index, month='ann'):
     bccaq_location_slice = bccaq_dataset.sel(region= indexi).drop(['CSDUID','region'])
 
     # we filter the appropriate month from the MS-allyears file
-    if monthnumber > 0:
+    if msys == "MS":
         bccaq_location_slice= bccaq_location_slice.isel(time=bccaq_location_slice.groupby('time.month').groups[monthnumber])
 
     if bccaq_location_slice['{}_rcp26_p50'.format(var)].attrs.get('units') == 'K':
@@ -165,6 +165,34 @@ def generate_regional_charts(var, partition, index, month='ann'):
                                                           bccaq_location_slice['{}_{}_p90'.format(var, model)]]))
     return  return_values
 
+"""
+    Get regional data for all regions, single date
+"""
+@app.route('/get-choro-values/<partition>/<var>/<model>/<month>/')
+@app.route('/get-choro-values/<partition>/<var>/<model>')
+def get_choro_values(partition, var, model, month='ann'):
+    try:
+        msys = "YS" if month == "ann" else "MS"
+        monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+        if model not in app.config['MODELS']:
+            raise ValueError
+        if var not in app.config['VARIABLES']:
+            raise ValueError
+        period = int(request.args['period'])
+        dataset_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['means'].format(
+            root=app.config['PARTITIONS_FOLDER'][partition],
+            var=var,
+            msys=msys)
+    except (TypeError, ValueError, BadRequestKeyError, KeyError):
+        return "Bad request", 400
+
+    bccaq_dataset = open_dataset_by_path(dataset_path)
+    bccaq_time_slice = bccaq_dataset.sel(time="{}-{}-01".format(period, monthnumber))
+    if bccaq_time_slice['{}_rcp26_p50'.format(var)].attrs.get('units') == 'K':
+        bccaq_time_slice = bccaq_time_slice - 273.15
+
+    return json.dumps(bccaq_time_slice["{}_{}_p50".format(var,model)]
+                      .drop(['CSDUID','time']).to_dataframe().astype('float64').round(2).transpose().values.tolist()[0])
 
 def get_dataset_values(args, json_format, download=False):
     try:
@@ -205,6 +233,8 @@ def get_dataset_values(args, json_format, download=False):
                 """.format(var=var, lat=lati, lon=loni, month=app.config['MONTH_OUTPUT_LUT'][month])) + json_frame + '}]'
     else:
         return json_frame
+
+
 
 @app.route('/get_values.php')
 def get_values():
