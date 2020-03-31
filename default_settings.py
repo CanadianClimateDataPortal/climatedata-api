@@ -5,11 +5,19 @@ DEBUG = True
 
 SENTRY_ENV="dev"
 
-NETCDF_FILENAME_FORMATS=["{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{msys}{month}.nc",
+NETCDF_BCCAQV2_FILENAME_FORMATS=["{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{msys}{month}.nc",
                          "{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1950-2100_{var}_{msys}{month}.nc"]
 
-NETCDF_ROOT_FOLDER="./netcdfs"
+NETCDF_ANUSPLINV1_FILENAME_FORMATS=["{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}{month}.nc"]
+
+NETCDF_BCCAQV2_YEARLY_FOLDER= "./netcdfs"
+NETCDF_ANUSPLINV1_YEARLY_FOLDER = "./netcdfs"
 NETCDF_LOCATIONS_FOLDER="./netcdfs/locations"
+
+MODELS=['rcp26', 'rcp45', 'rcp85']
+
+HISTORICAL_DATE_LIMIT_BEFORE = '2005-12-31'
+HISTORICAL_DATE_LIMIT_AFTER = '2005-01-01'
 
 VARIABLES = ['cddcold_18',
              'frost_days',
