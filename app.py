@@ -121,8 +121,12 @@ def generate_regional_charts(partition, index, var, month='ann'):
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
-        dataset_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['allyears'].format(
-            root=app.config['PARTITIONS_FOLDER'][partition],
+        bccaq_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['allyears'].format(
+            root=app.config['PARTITIONS_FOLDER'][partition]['BCCAQ'],
+            var=var,
+            msys=msys)
+        anusplin_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['ANUSPLIN'].format(
+            root=app.config['PARTITIONS_FOLDER'][partition]['ANUSPLIN'],
             var=var,
             msys=msys)
     except (ValueError, BadRequestKeyError, KeyError):
@@ -130,24 +134,24 @@ def generate_regional_charts(partition, index, var, month='ann'):
 
 
 
-#    anusplin_dataset = open_dataset(var, msys, monthpath,
-#                                    app.config['NETCDF_ANUSPLINV1_FILENAME_FORMATS'],
-#                                    app.config['NETCDF_ANUSPLINV1_YEARLY_FOLDER'])
-#    anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
-#    if anusplin_location_slice[var].attrs.get('units') == 'K':
-#        anusplin_location_slice = anusplin_location_slice - 273.15
+    anusplin_dataset = open_dataset_by_path(anusplin_path)
+    anusplin_location_slice = anusplin_dataset.sel(region=indexi).drop([i for i in anusplin_dataset.coords if i != 'time'])
+    if anusplin_location_slice[var].attrs.get('units') == 'K':
+        anusplin_location_slice = anusplin_location_slice - 273.15
 
-    bccaq_dataset = open_dataset_by_path(dataset_path)
-    bccaq_location_slice = bccaq_dataset.sel(region= indexi).drop(['CSDUID','region'])
+    bccaq_dataset = open_dataset_by_path(bccaq_path)
+    bccaq_location_slice = bccaq_dataset.sel(region= indexi).drop([i for i in anusplin_dataset.coords if i != 'time'])
 
     # we filter the appropriate month from the MS-allyears file
     if msys == "MS":
-        bccaq_location_slice= bccaq_location_slice.isel(time=bccaq_location_slice.groupby('time.month').groups[monthnumber])
+        bccaq_location_slice= bccaq_location_slice.isel(
+            time=bccaq_location_slice.groupby('time.month').groups[monthnumber])
+        anusplin_location_slice = anusplin_location_slice.isel(
+            time=anusplin_location_slice.groupby('time.month').groups[monthnumber])
 
     if bccaq_location_slice['{}_rcp26_p50'.format(var)].attrs.get('units') == 'K':
         bccaq_location_slice = bccaq_location_slice - 273.15
-    return_values ={'observations': []}
-#   return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
+    return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
 
 
 
@@ -180,7 +184,7 @@ def get_choro_values(partition, var, model, month='ann'):
             raise ValueError
         period = int(request.args['period'])
         dataset_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['means'].format(
-            root=app.config['PARTITIONS_FOLDER'][partition],
+            root=app.config['PARTITIONS_FOLDER'][partition]['BCCAQ'],
             var=var,
             msys=msys)
     except (TypeError, ValueError, BadRequestKeyError, KeyError):
@@ -192,7 +196,7 @@ def get_choro_values(partition, var, model, month='ann'):
         bccaq_time_slice = bccaq_time_slice - 273.15
 
     return json.dumps(bccaq_time_slice["{}_{}_p50".format(var,model)]
-                      .drop(['CSDUID','time']).to_dataframe().astype('float64').round(2).transpose().values.tolist()[0])
+                      .drop([i for i in bccaq_time_slice.coords if i != 'region']).to_dataframe().astype('float64').round(2).transpose().values.tolist()[0])
 
 def get_dataset_values(args, json_format, download=False):
     try:
