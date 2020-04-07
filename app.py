@@ -194,7 +194,8 @@ def get_choro_values(partition, var, model, month='ann'):
     bccaq_time_slice = bccaq_dataset.sel(time="{}-{}-01".format(period, monthnumber))
 
     return Response(json.dumps(bccaq_time_slice["{}_{}_p50".format(var,model)]
-                      .drop([i for i in bccaq_time_slice.coords if i != 'region']).to_dataframe().astype('float64').round(2).transpose().values.tolist()[0]),
+                        .drop([i for i in bccaq_time_slice.coords if i != 'region']).to_dataframe().astype('float64')
+                        .round(2).fillna(0).transpose().values.tolist()[0]),
                     mimetype='application/json')
 
 def get_dataset_values(args, json_format, download=False):
