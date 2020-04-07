@@ -192,8 +192,6 @@ def get_choro_values(partition, var, model, month='ann'):
 
     bccaq_dataset = open_dataset_by_path(dataset_path)
     bccaq_time_slice = bccaq_dataset.sel(time="{}-{}-01".format(period, monthnumber))
-    if bccaq_time_slice['{}_rcp26_p50'.format(var)].attrs.get('units') == 'K':
-        bccaq_time_slice = bccaq_time_slice - 273.15
 
     return json.dumps(bccaq_time_slice["{}_{}_p50".format(var,model)]
                       .drop([i for i in bccaq_time_slice.coords if i != 'region']).to_dataframe().astype('float64').round(2).transpose().values.tolist()[0])
