@@ -144,10 +144,8 @@ def generate_regional_charts(partition, index, var, month='ann'):
 
     # we filter the appropriate month from the MS-allyears file
     if msys == "MS":
-        bccaq_location_slice= bccaq_location_slice.isel(
-            time=bccaq_location_slice.groupby('time.month').groups[monthnumber])
-        anusplin_location_slice = anusplin_location_slice.isel(
-            time=anusplin_location_slice.groupby('time.month').groups[monthnumber])
+        bccaq_location_slice= bccaq_location_slice.sel(time=(bccaq_location_slice.time.dt.month == monthnumber))
+        anusplin_location_slice = anusplin_location_slice.sel(time=(anusplin_location_slice.time.dt.month == monthnumber))
 
     if bccaq_location_slice['{}_rcp26_p50'.format(var)].attrs.get('units') == 'K':
         bccaq_location_slice = bccaq_location_slice - 273.15
