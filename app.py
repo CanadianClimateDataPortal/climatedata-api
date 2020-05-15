@@ -75,7 +75,9 @@ def generate_charts(var, lat, lon, month='ann'):
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-
+    # SPEI treatement is very different
+    if var in app.config['SPEI_VARIABLES']:
+        return generate_spei_charts(var, lati, loni, month)
 
     anusplin_dataset = open_dataset(var, msys, monthpath,
                                     app.config['NETCDF_ANUSPLINV1_FILENAME_FORMATS'],
@@ -108,6 +110,34 @@ def generate_charts(var, lat, lon, month='ann'):
         return_values[model + '_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice['{}_{}_p10'.format(model, var)],
                                                           bccaq_location_slice['{}_{}_p90'.format(model, var)]]))
     return  return_values
+
+"""
+    Copied from generate-charts, but handles the exceptions for SPEI
+"""
+def generate_spei_charts(var, lati, loni, month):
+    monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+    dataset = open_dataset_by_path(app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'],var=var))
+
+    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon','scale']).dropna('time')
+    location_slice = location_slice.sel(time=(location_slice.time.dt.month == monthnumber))
+    return_values = {'observations': []}
+
+    # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
+    location_slice_historical = location_slice.where(location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
+    return_values['modeled_historical_median'] = convert_dataset_to_list(location_slice_historical['rcp26_spei_p50'])
+    return_values['modeled_historical_range'] = convert_dataset_to_list(xr.merge([location_slice_historical['rcp26_spei_p10'],
+                                                                                  location_slice_historical['rcp26_spei_p90']]))
+    # we return values in historical for all models after HISTORICAL_DATE_LIMIT
+    location_slice = location_slice.where(location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
+
+    for model in app.config['MODELS']:
+        return_values[model + '_median'] = convert_dataset_to_list(location_slice['{}_spei_p50'.format(model)])
+        return_values[model + '_range'] = convert_dataset_to_list(xr.merge([location_slice['{}_spei_p10'.format(model)],
+                                                          location_slice['{}_spei_p90'.format(model)]]))
+    return  return_values
+
+
+
 
 """
     Get data for specific region

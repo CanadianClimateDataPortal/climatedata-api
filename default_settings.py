@@ -6,10 +6,12 @@ NETCDF_BCCAQV2_FILENAME_FORMATS=["{root}/{var}/allrcps_ensemble_stats/{msys}/BCC
                          "{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1950-2100_{var}_{msys}{month}.nc"]
 
 NETCDF_ANUSPLINV1_FILENAME_FORMATS=["{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}{month}.nc"]
+NETCDF_SPEI_FILENAME_FORMATS="{root}/{var}/SPEI_ensemble_percentiles_allrcps_MON_1900_2100_{var}.nc"
 
 NETCDF_BCCAQV2_YEARLY_FOLDER= "./netcdfs"
 NETCDF_ANUSPLINV1_YEARLY_FOLDER = "./netcdfs"
 NETCDF_LOCATIONS_FOLDER="./netcdfs/locations"
+NETCDF_SPEI_FOLDER="./netcdfs/SPEI/"
 
 MODELS=['rcp26', 'rcp45', 'rcp85']
 
@@ -42,7 +44,11 @@ VARIABLES = ['cddcold_18',
              'txgt_30',
              'txgt_32',
              'tx_max',
-             'tx_mean']
+             'tx_mean',
+             'spei_3m',
+             'spei_12m']
+
+SPEI_VARIABLES = ['spei_3m', 'spei_12m']
 
 MONTH_LUT= {
     'jan':('_01January','MS'),
