@@ -1,3 +1,6 @@
+import json
+import mapbox_vector_tile
+
 DEBUG = True
 
 SENTRY_ENV="dev"
@@ -110,3 +113,22 @@ PARTITIONS_PATH_FORMATS = {'municipal': {'allyears': "{root}/{var}/{msys}/{msys}
                            'health':    {'allyears': "{root}/{var}/{msys}/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
                                          'means': "{root}/{var}/{msys}/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
                                          'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"}}
+
+SYSTEM_CHECKS_HOST = "http://localhost"
+SYSTEM_CHECKS= [
+    {'name': 'get_values',
+    'URL': "{}/get_values.php?lat=45.5833333&lon=-73.75&var=frost_days&month=ann",
+    'validator': json.loads},
+    {'name': 'get_location_values_allyears',
+     'URL': "{}/get_location_values_allyears.php?lat=45.583333&lon=-73.75&time=2100-01-01",
+     'validator': json.loads},
+    {'name': 'canadagrid',
+     'URL': "{}/geoserver/gwc/service/tms/1.0.0/CDC:canadagrid@EPSG%3A900913@pbf/11/610/1315.pbf",
+     'validator': mapbox_vector_tile.decode},
+    {'name': 'getFeatureInfo',
+     'URL': ("{}/geoserver/ows?service=WMS&request=GetFeatureInfo&layers=CDC%3Atg_mean-ys-rcp85-p50-ann-30year"
+             "&query_layers=CDC%3Atg_mean-ys-rcp85-p50-ann-30year&info_format=application%2Fjson&version=1.3.0"
+             "&width=256&height=256&srs=EPSG%3A3857&TIME=2030-01-00T00%3A00%3A00Z%2F2040-01-01T00%3A00%3A00Z"
+             "&bbox=-10331840.239250705%2C7200979.560689886%2C-10018754.171394622%2C7514065.628545967&i=33&j=33"),
+     'validator': json.loads}
+]

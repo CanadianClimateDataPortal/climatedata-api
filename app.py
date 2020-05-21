@@ -10,6 +10,7 @@ import glob
 import sentry_sdk
 from textwrap import dedent
 from sentry_sdk.integrations.flask import FlaskIntegration
+import requests
 
 
 app = Flask(__name__)
@@ -285,54 +286,62 @@ def get_location_values_allyears():
         return "Bad request", 400
 
     anusplin_dataset = xr.open_dataset(app.config['NETCDF_LOCATIONS_FOLDER'] + "/SearchLocation_30yAvg_anusplin_nrcan_canada_tg_mean_prcptot_YS.nc")
+    anusplin_location_slice  = anusplin_dataset.sel(lat=lati, lon=loni, method='nearest')
 
-    anusplin_1950_location_slice = anusplin_dataset.sel(time='1950-01-01', lat=lati, lon=loni, method='nearest')
-    anusplin_1980_location_slice = anusplin_dataset.sel(time='1980-01-01', lat=lati, lon=loni, method='nearest')
-    anusplin_2005_location_slice = anusplin_dataset.sel(time='2005-01-01', lat=lati, lon=loni, method='nearest')
+    anusplin_1950_location_slice = anusplin_location_slice.sel(time='1951-01-01')
+    anusplin_1980_location_slice = anusplin_location_slice.sel(time='1981-01-01')
 
-    anusplin_1950_temp = float(anusplin_1950_location_slice.tg_mean.values)
-    anusplin_1950_temp = anusplin_1950_temp - 273.15
-    anusplin_1950_temp = round(anusplin_1950_temp, 1)
+    anusplin_1950_temp = round(anusplin_1950_location_slice.tg_mean.item() - 273.15, 1)
+    anusplin_1980_temp = round(anusplin_1980_location_slice.tg_mean.item() - 273.15, 1)
+    anusplin_1950_precip = round(anusplin_1950_location_slice.prcptot.item())
 
-    anusplin_1980_precip = float(anusplin_1980_location_slice.prcptot.values)
-    anusplin_1980_precip = round(anusplin_1980_precip)
-
-    anusplin_2005_temp = float(anusplin_2005_location_slice.tg_mean.values)
-    anusplin_2005_temp = anusplin_2005_temp - 273.15
-    anusplin_2005_temp = round(anusplin_2005_temp, 1)
 
     bcc_dataset = xr.open_dataset(app.config['NETCDF_LOCATIONS_FOLDER'] + "/SearchLocation_30yAvg_wDeltas_BCCAQv2+ANUSPLIN300_rcp85_tg_mean_prcptot_YS.nc")
+    bcc_location_slice = bcc_dataset.sel(lat=lati, lon=loni, method='nearest')
+    bcc_2020_location_slice = bcc_location_slice.sel(time='2021-01-01')
+    bcc_2050_location_slice = bcc_location_slice.sel(time='2051-01-01')
+    bcc_2070_location_slice = bcc_location_slice.sel(time='2071-01-01')
 
-    bcc_2020_location_slice = bcc_dataset.sel(time='2020-01-01', lat=lati, lon=loni, method='nearest')
-    bcc_2050_location_slice = bcc_dataset.sel(time='2050-01-01', lat=lati, lon=loni, method='nearest')
-    bcc_2090_location_slice = bcc_dataset.sel(time='2090-01-01', lat=lati, lon=loni, method='nearest')
+    bcc_2020_temp = round(bcc_2020_location_slice.tg_mean_p50.values.item() - 273.15, 1)
+    bcc_2020_precip = round(bcc_2020_location_slice.delta_prcptot_p50_vs_7100.values.item())
 
-    bcc_2020_temp = float(bcc_2020_location_slice.tg_mean_p50.values)
-    bcc_2020_temp = bcc_2020_temp - 273.15
-    bcc_2020_temp = round(bcc_2020_temp, 1)
-    bcc_2020_precip = float(bcc_2020_location_slice.delta_prcptot_p50_vs_7100.values)
-    bcc_2020_precip = round(bcc_2020_precip)
+    bcc_2050_temp = round(bcc_2050_location_slice.tg_mean_p50.values.item() - 273.15, 1)
+    bcc_2050_precip = round(bcc_2050_location_slice.delta_prcptot_p50_vs_7100.values.item())
 
-    bcc_2050_temp = float(bcc_2050_location_slice.tg_mean_p50.values)
-    bcc_2050_temp = bcc_2050_temp - 273.15
-    bcc_2050_temp = round(bcc_2050_temp, 1)
-    bcc_2050_precip = float(bcc_2050_location_slice.delta_prcptot_p50_vs_7100.values)
-    bcc_2050_precip = round(bcc_2050_precip)
-
-    bcc_2090_temp = float(bcc_2090_location_slice.tg_mean_p50.values)
-    bcc_2090_temp = bcc_2090_temp - 273.15
-    bcc_2090_temp = round(bcc_2090_temp, 1)
-    bcc_2090_precip = float(bcc_2090_location_slice.delta_prcptot_p50_vs_7100.values)
-    bcc_2090_precip = round(bcc_2090_precip)
+    bcc_2070_temp = round(bcc_2070_location_slice.tg_mean_p50.values.item() - 273.15, 1)
+    bcc_2070_precip = round(bcc_2070_location_slice.delta_prcptot_p50_vs_7100.values.item())
 
     return json.dumps({
         "anusplin_1950_temp": anusplin_1950_temp,
-        "anusplin_2005_temp": anusplin_2005_temp,
-        "anusplin_1980_precip": anusplin_1980_precip,
+        "anusplin_2005_temp": anusplin_1980_temp, # useless value kept for frontend transition
+        "anusplin_1980_temp": anusplin_1980_temp,
+        "anusplin_1980_precip": anusplin_1950_precip, # useless value kept for frontend transition
+        "anusplin_1950_precip": anusplin_1950_precip,
         "bcc_2020_temp": bcc_2020_temp,
         "bcc_2050_temp": bcc_2050_temp,
-        "bcc_2090_temp": bcc_2090_temp,
+        "bcc_2070_temp": bcc_2070_temp,
+        "bcc_2090_temp": bcc_2070_temp, # useless value kept for frontend transition
         "bcc_2020_precip": bcc_2020_precip,
         "bcc_2050_precip": bcc_2050_precip,
-        "bcc_2090_precip": bcc_2090_precip
+        "bcc_2070_precip": bcc_2070_precip,
+        "bcc_2090_precip": bcc_2070_precip # useless value kept for frontend transition
     })
+
+"""
+    Check server status (geoserver + this app)
+    Return 200 OK if everything is fine
+    Return 500 if one component is broken
+"""
+@app.route('/status')
+def check_status():
+    for check in app.config['SYSTEM_CHECKS']:
+        try:
+            r = requests.get(check['URL'].format(app.config['SYSTEM_CHECKS_HOST']))
+            assert r.status_code == 200
+            check['validator'](r.content)
+        except Exception as ex:
+            if app.config['DEBUG']:
+                raise ex
+            else:
+                return "Test {} failed.<br> Message: {}".format(check['name'], ex), 500
+    return "All checks successful",200
