@@ -18,18 +18,21 @@ MODELS=['rcp26', 'rcp45', 'rcp85']
 HISTORICAL_DATE_LIMIT_BEFORE = '2005-12-31'
 HISTORICAL_DATE_LIMIT_AFTER = '2005-01-01'
 
-VARIABLES = ['cddcold_18',
+VARIABLES = ['cdd',
+             'cddcold_18',
              'frost_days',
              'gddgrow_0',
              'gddgrow_10',
              'gddgrow_5',
              'hddheat_17',
              'ice_days',
+             'nr_cdd',
              'prcptot',
              'r10mm',
              'r1mm',
              'r20mm',
              'rx1day',
+             'rx5day',
              'tg_mean',
              'tnlt_-15',
              'tnlt_-25',
