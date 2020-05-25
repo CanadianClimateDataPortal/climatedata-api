@@ -45,12 +45,12 @@ def open_dataset(var, msys, month, formats, root):
     raise FileNotFoundError("Dataset not found")
 
 def open_dataset_by_path(path):
-        try:
-            dataset=  xr.open_dataset(path, decode_times=False)
-            dataset['time'] = xr.decode_cf(dataset).time
-            return dataset
-        except FileNotFoundError:
-            raise FileNotFoundError("Dataset not found")
+    try:
+        dataset=  xr.open_dataset(path, decode_times=False)
+        dataset['time'] = xr.decode_cf(dataset).time
+        return dataset
+    except FileNotFoundError:
+        raise FileNotFoundError("Dataset not found")
 
 """
 Converts xarray dataset to a list. 
@@ -85,7 +85,7 @@ def generate_charts(var, lat, lon, month='ann'):
                                     app.config['NETCDF_ANUSPLINV1_YEARLY_FOLDER'])
     anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
     if anusplin_location_slice[var].attrs.get('units') == 'K':
-        anusplin_location_slice = anusplin_location_slice - 273.15
+        anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
 
     bccaq_dataset = open_dataset(var, msys, monthpath,
                                  app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
@@ -94,7 +94,7 @@ def generate_charts(var, lat, lon, month='ann'):
     # there are some edge cases where the bccaq slice may not geographically match the anusplin slice
     bccaq_location_slice = bccaq_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
     if bccaq_location_slice['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
-        bccaq_location_slice = bccaq_location_slice - 273.15
+        bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
 
     return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
 
@@ -168,7 +168,7 @@ def generate_regional_charts(partition, index, var, month='ann'):
     anusplin_dataset = open_dataset_by_path(anusplin_path)
     anusplin_location_slice = anusplin_dataset.sel(region=indexi).drop([i for i in anusplin_dataset.coords if i != 'time'])
     if anusplin_location_slice[var].attrs.get('units') == 'K':
-        anusplin_location_slice = anusplin_location_slice - 273.15
+        anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
 
     bccaq_dataset = open_dataset_by_path(bccaq_path)
     bccaq_location_slice = bccaq_dataset.sel(region= indexi).drop([i for i in anusplin_dataset.coords if i != 'time'])
@@ -179,7 +179,7 @@ def generate_regional_charts(partition, index, var, month='ann'):
         anusplin_location_slice = anusplin_location_slice.sel(time=(anusplin_location_slice.time.dt.month == monthnumber))
 
     if bccaq_location_slice['{}_rcp26_p50'.format(var)].attrs.get('units') == 'K':
-        bccaq_location_slice = bccaq_location_slice - 273.15
+        bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
     return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
 
 
@@ -291,8 +291,8 @@ def get_location_values_allyears():
     anusplin_1950_location_slice = anusplin_location_slice.sel(time='1951-01-01')
     anusplin_1980_location_slice = anusplin_location_slice.sel(time='1981-01-01')
 
-    anusplin_1950_temp = round(anusplin_1950_location_slice.tg_mean.item() - 273.15, 1)
-    anusplin_1980_temp = round(anusplin_1980_location_slice.tg_mean.item() - 273.15, 1)
+    anusplin_1950_temp = round(anusplin_1950_location_slice.tg_mean.item() + app.config['KELVIN_TO_C'], 1)
+    anusplin_1980_temp = round(anusplin_1980_location_slice.tg_mean.item() + app.config['KELVIN_TO_C'], 1)
     anusplin_1950_precip = round(anusplin_1950_location_slice.prcptot.item())
 
 
@@ -302,13 +302,13 @@ def get_location_values_allyears():
     bcc_2050_location_slice = bcc_location_slice.sel(time='2051-01-01')
     bcc_2070_location_slice = bcc_location_slice.sel(time='2071-01-01')
 
-    bcc_2020_temp = round(bcc_2020_location_slice.tg_mean_p50.values.item() - 273.15, 1)
+    bcc_2020_temp = round(bcc_2020_location_slice.tg_mean_p50.values.item() + app.config['KELVIN_TO_C'],  1)
     bcc_2020_precip = round(bcc_2020_location_slice.delta_prcptot_p50_vs_7100.values.item())
 
-    bcc_2050_temp = round(bcc_2050_location_slice.tg_mean_p50.values.item() - 273.15, 1)
+    bcc_2050_temp = round(bcc_2050_location_slice.tg_mean_p50.values.item() + app.config['KELVIN_TO_C'], 1)
     bcc_2050_precip = round(bcc_2050_location_slice.delta_prcptot_p50_vs_7100.values.item())
 
-    bcc_2070_temp = round(bcc_2070_location_slice.tg_mean_p50.values.item() - 273.15, 1)
+    bcc_2070_temp = round(bcc_2070_location_slice.tg_mean_p50.values.item() + app.config['KELVIN_TO_C'], 1)
     bcc_2070_precip = round(bcc_2070_location_slice.delta_prcptot_p50_vs_7100.values.item())
 
     return json.dumps({

@@ -20,6 +20,7 @@ MODELS=['rcp26', 'rcp45', 'rcp85']
 
 HISTORICAL_DATE_LIMIT_BEFORE = '2005-12-31'
 HISTORICAL_DATE_LIMIT_AFTER = '2005-01-01'
+KELVIN_TO_C = -273.15
 
 VARIABLES = ['cdd',
              'cddcold_18',
