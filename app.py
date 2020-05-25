@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import json
 from werkzeug.exceptions import BadRequestKeyError
 import sentry_sdk
@@ -44,6 +44,13 @@ def open_dataset(var, msys, month, formats, root):
             pass
     raise FileNotFoundError("Dataset not found")
 
+def open_dataset_by_path(path):
+    try:
+        dataset=  xr.open_dataset(path, decode_times=False)
+        dataset['time'] = xr.decode_cf(dataset).time
+        return dataset
+    except FileNotFoundError:
+        raise FileNotFoundError("Dataset not found")
 
 """
 Converts xarray dataset to a list. 
@@ -69,14 +76,16 @@ def generate_charts(var, lat, lon, month='ann'):
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-
+    # SPEI treatement is very different
+    if var in app.config['SPEI_VARIABLES']:
+        return generate_spei_charts(var, lati, loni, month)
 
     anusplin_dataset = open_dataset(var, msys, monthpath,
                                     app.config['NETCDF_ANUSPLINV1_FILENAME_FORMATS'],
                                     app.config['NETCDF_ANUSPLINV1_YEARLY_FOLDER'])
     anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
     if anusplin_location_slice[var].attrs.get('units') == 'K':
-        anusplin_location_slice = anusplin_location_slice - 273.15
+        anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
 
     bccaq_dataset = open_dataset(var, msys, monthpath,
                                  app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
@@ -85,7 +94,7 @@ def generate_charts(var, lat, lon, month='ann'):
     # there are some edge cases where the bccaq slice may not geographically match the anusplin slice
     bccaq_location_slice = bccaq_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
     if bccaq_location_slice['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
-        bccaq_location_slice = bccaq_location_slice - 273.15
+        bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
 
     return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
 
@@ -103,7 +112,120 @@ def generate_charts(var, lat, lon, month='ann'):
                                                           bccaq_location_slice['{}_{}_p90'.format(model, var)]]))
     return  return_values
 
+"""
+    Copied from generate-charts, but handles the exceptions for SPEI
+"""
+def generate_spei_charts(var, lati, loni, month):
+    monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+    dataset = open_dataset_by_path(app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'],var=var))
 
+    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon','scale']).dropna('time')
+    location_slice = location_slice.sel(time=(location_slice.time.dt.month == monthnumber))
+    return_values = {'observations': []}
+
+    # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
+    location_slice_historical = location_slice.where(location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
+    return_values['modeled_historical_median'] = convert_dataset_to_list(location_slice_historical['rcp26_spei_p50'])
+    return_values['modeled_historical_range'] = convert_dataset_to_list(xr.merge([location_slice_historical['rcp26_spei_p10'],
+                                                                                  location_slice_historical['rcp26_spei_p90']]))
+    # we return values in historical for all models after HISTORICAL_DATE_LIMIT
+    location_slice = location_slice.where(location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
+
+    for model in app.config['MODELS']:
+        return_values[model + '_median'] = convert_dataset_to_list(location_slice['{}_spei_p50'.format(model)])
+        return_values[model + '_range'] = convert_dataset_to_list(xr.merge([location_slice['{}_spei_p10'.format(model)],
+                                                          location_slice['{}_spei_p90'.format(model)]]))
+    return  return_values
+
+
+
+
+"""
+    Get data for specific region
+"""
+@app.route('/generate-regional-charts/<partition>/<index>/<var>/<month>')
+@app.route('/generate-regional-charts/<partition>/<index>/<var>')
+def generate_regional_charts(partition, index, var, month='ann'):
+    try:
+        indexi = int(index)
+        msys = "YS" if month == "ann" else "MS"
+        monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+        if var not in app.config['VARIABLES']:
+            raise ValueError
+        bccaq_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['allyears'].format(
+            root=app.config['PARTITIONS_FOLDER'][partition]['BCCAQ'],
+            var=var,
+            msys=msys)
+        anusplin_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['ANUSPLIN'].format(
+            root=app.config['PARTITIONS_FOLDER'][partition]['ANUSPLIN'],
+            var=var,
+            msys=msys)
+    except (ValueError, BadRequestKeyError, KeyError):
+        return "Bad request", 400
+
+
+
+    anusplin_dataset = open_dataset_by_path(anusplin_path)
+    anusplin_location_slice = anusplin_dataset.sel(region=indexi).drop([i for i in anusplin_dataset.coords if i != 'time'])
+    if anusplin_location_slice[var].attrs.get('units') == 'K':
+        anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
+
+    bccaq_dataset = open_dataset_by_path(bccaq_path)
+    bccaq_location_slice = bccaq_dataset.sel(region= indexi).drop([i for i in anusplin_dataset.coords if i != 'time'])
+
+    # we filter the appropriate month from the MS-allyears file
+    if msys == "MS":
+        bccaq_location_slice= bccaq_location_slice.sel(time=(bccaq_location_slice.time.dt.month == monthnumber))
+        anusplin_location_slice = anusplin_location_slice.sel(time=(anusplin_location_slice.time.dt.month == monthnumber))
+
+    if bccaq_location_slice['{}_rcp26_p50'.format(var)].attrs.get('units') == 'K':
+        bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
+    return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
+
+
+
+    # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
+    bccaq_location_slice_historical = bccaq_location_slice.where(bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
+    return_values['modeled_historical_median'] = convert_dataset_to_list(bccaq_location_slice_historical['{}_rcp26_p50'.format(var)])
+    return_values['modeled_historical_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice_historical['{}_rcp26_p10'.format(var)],
+                                                                                  bccaq_location_slice_historical['{}_rcp26_p90'.format(var)]]))
+    # we return values in historical for all models after HISTORICAL_DATE_LIMIT
+    bccaq_location_slice = bccaq_location_slice.where(bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
+
+    for model in app.config['MODELS']:
+        return_values[model + '_median'] = convert_dataset_to_list(bccaq_location_slice['{}_{}_p50'.format(var, model)])
+        return_values[model + '_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice['{}_{}_p10'.format(var, model)],
+                                                          bccaq_location_slice['{}_{}_p90'.format(var, model)]]))
+    return  return_values
+
+"""
+    Get regional data for all regions, single date
+"""
+@app.route('/get-choro-values/<partition>/<var>/<model>/<month>/')
+@app.route('/get-choro-values/<partition>/<var>/<model>')
+def get_choro_values(partition, var, model, month='ann'):
+    try:
+        msys = "YS" if month == "ann" else "MS"
+        monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+        if model not in app.config['MODELS']:
+            raise ValueError
+        if var not in app.config['VARIABLES']:
+            raise ValueError
+        period = int(request.args['period'])
+        dataset_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['means'].format(
+            root=app.config['PARTITIONS_FOLDER'][partition]['BCCAQ'],
+            var=var,
+            msys=msys)
+    except (TypeError, ValueError, BadRequestKeyError, KeyError):
+        return "Bad request", 400
+
+    bccaq_dataset = open_dataset_by_path(dataset_path)
+    bccaq_time_slice = bccaq_dataset.sel(time="{}-{}-01".format(period, monthnumber))
+
+    return Response(json.dumps(bccaq_time_slice["{}_{}_p50".format(var,model)]
+                        .drop([i for i in bccaq_time_slice.coords if i != 'region']).to_dataframe().astype('float64')
+                        .round(2).fillna(0).transpose().values.tolist()[0]),
+                    mimetype='application/json')
 
 def get_dataset_values(args, json_format, download=False):
     try:
@@ -145,6 +267,8 @@ def get_dataset_values(args, json_format, download=False):
     else:
         return json_frame
 
+
+
 @app.route('/get_values.php')
 def get_values():
     return get_dataset_values(request.args, {'orient': 'values', 'date_format': 'epoch', 'date_unit': 's'})
@@ -167,8 +291,8 @@ def get_location_values_allyears():
     anusplin_1950_location_slice = anusplin_location_slice.sel(time='1951-01-01')
     anusplin_1980_location_slice = anusplin_location_slice.sel(time='1981-01-01')
 
-    anusplin_1950_temp = round(anusplin_1950_location_slice.tg_mean.item() - 273.15, 1)
-    anusplin_1980_temp = round(anusplin_1980_location_slice.tg_mean.item() - 273.15, 1)
+    anusplin_1950_temp = round(anusplin_1950_location_slice.tg_mean.item() + app.config['KELVIN_TO_C'], 1)
+    anusplin_1980_temp = round(anusplin_1980_location_slice.tg_mean.item() + app.config['KELVIN_TO_C'], 1)
     anusplin_1950_precip = round(anusplin_1950_location_slice.prcptot.item())
 
 
@@ -178,13 +302,13 @@ def get_location_values_allyears():
     bcc_2050_location_slice = bcc_location_slice.sel(time='2051-01-01')
     bcc_2070_location_slice = bcc_location_slice.sel(time='2071-01-01')
 
-    bcc_2020_temp = round(bcc_2020_location_slice.tg_mean_p50.values.item() - 273.15, 1)
+    bcc_2020_temp = round(bcc_2020_location_slice.tg_mean_p50.values.item() + app.config['KELVIN_TO_C'],  1)
     bcc_2020_precip = round(bcc_2020_location_slice.delta_prcptot_p50_vs_7100.values.item())
 
-    bcc_2050_temp = round(bcc_2050_location_slice.tg_mean_p50.values.item() - 273.15, 1)
+    bcc_2050_temp = round(bcc_2050_location_slice.tg_mean_p50.values.item() + app.config['KELVIN_TO_C'], 1)
     bcc_2050_precip = round(bcc_2050_location_slice.delta_prcptot_p50_vs_7100.values.item())
 
-    bcc_2070_temp = round(bcc_2070_location_slice.tg_mean_p50.values.item() - 273.15, 1)
+    bcc_2070_temp = round(bcc_2070_location_slice.tg_mean_p50.values.item() + app.config['KELVIN_TO_C'], 1)
     bcc_2070_precip = round(bcc_2070_location_slice.delta_prcptot_p50_vs_7100.values.item())
 
     return json.dumps({
