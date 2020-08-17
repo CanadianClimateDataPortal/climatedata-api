@@ -113,15 +113,21 @@ def generate_charts(var, lat, lon, month='ann'):
     return  return_values
 
 """
-    Copied from generate-charts, but handles the exceptions for SPEI
+    Copied from generate-charts, but handles the exceptions for SPEI (i.e. single file)
 """
 def generate_spei_charts(var, lati, loni, month):
     monthnumber = app.config['MONTH_NUMBER_LUT'][month]
     dataset = open_dataset_by_path(app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'],var=var))
+    observed_dataset = open_dataset_by_path(app.config['NETCDF_SPEI_OBSERVED_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'],var=var))
 
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon','scale']).dropna('time')
     location_slice = location_slice.sel(time=(location_slice.time.dt.month == monthnumber))
-    return_values = {'observations': []}
+
+    observed_location_slice = observed_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon','scale']).dropna('time')
+    observed_location_slice = observed_location_slice.sel(time=(observed_location_slice.time.dt.month == monthnumber))
+
+    return_values = {}
+    return_values['observations']= convert_dataset_to_list(observed_location_slice)
 
     # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
     location_slice_historical = location_slice.where(location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
