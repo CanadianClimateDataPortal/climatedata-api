@@ -184,7 +184,7 @@ def generate_regional_charts(partition, index, var, month='ann'):
         bccaq_location_slice= bccaq_location_slice.sel(time=(bccaq_location_slice.time.dt.month == monthnumber))
         anusplin_location_slice = anusplin_location_slice.sel(time=(anusplin_location_slice.time.dt.month == monthnumber))
 
-    if bccaq_location_slice['{}_rcp26_p50'.format(var)].attrs.get('units') == 'K':
+    if bccaq_location_slice['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
         bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
     return_values = {'observations': convert_dataset_to_list(anusplin_location_slice)}
 
