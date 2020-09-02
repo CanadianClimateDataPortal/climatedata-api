@@ -192,16 +192,16 @@ def generate_regional_charts(partition, index, var, month='ann'):
 
     # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
     bccaq_location_slice_historical = bccaq_location_slice.where(bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
-    return_values['modeled_historical_median'] = convert_dataset_to_list(bccaq_location_slice_historical['{}_rcp26_p50'.format(var)])
-    return_values['modeled_historical_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice_historical['{}_rcp26_p10'.format(var)],
-                                                                                  bccaq_location_slice_historical['{}_rcp26_p90'.format(var)]]))
+    return_values['modeled_historical_median'] = convert_dataset_to_list(bccaq_location_slice_historical['rcp26_{}_p50'.format(var)])
+    return_values['modeled_historical_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice_historical['rcp26_{}_p10'.format(var)],
+                                                                                  bccaq_location_slice_historical['rcp26_{}_p90'.format(var)]]))
     # we return values in historical for all models after HISTORICAL_DATE_LIMIT
     bccaq_location_slice = bccaq_location_slice.where(bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
 
     for model in app.config['MODELS']:
-        return_values[model + '_median'] = convert_dataset_to_list(bccaq_location_slice['{}_{}_p50'.format(var, model)])
-        return_values[model + '_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice['{}_{}_p10'.format(var, model)],
-                                                          bccaq_location_slice['{}_{}_p90'.format(var, model)]]))
+        return_values[model + '_median'] = convert_dataset_to_list(bccaq_location_slice['{model}_{var}_p50'.format(var=var, model=model)])
+        return_values[model + '_range'] = convert_dataset_to_list(xr.merge([bccaq_location_slice['{model}_{var}_p10'.format(var=var, model=model)],
+                                                          bccaq_location_slice['{model}_{var}_p90'.format(var=var, model=model)]]))
     return  return_values
 
 """
@@ -228,7 +228,7 @@ def get_choro_values(partition, var, model, month='ann'):
     bccaq_dataset = open_dataset_by_path(dataset_path)
     bccaq_time_slice = bccaq_dataset.sel(time="{}-{}-01".format(period, monthnumber))
 
-    return Response(json.dumps(bccaq_time_slice["{}_{}_p50".format(var,model)]
+    return Response(json.dumps(bccaq_time_slice["{model}_{var}_p50".format(var=var,model=model)]
                         .drop([i for i in bccaq_time_slice.coords if i != 'region']).to_dataframe().astype('float64')
                         .round(2).fillna(0).transpose().values.tolist()[0]),
                     mimetype='application/json')
