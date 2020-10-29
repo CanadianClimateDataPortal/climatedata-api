@@ -74,7 +74,12 @@ MONTH_LUT= {
     'oct': ('_10October', 'MS'),
     'nov': ('_11November', 'MS'),
     'dec': ('_12December', 'MS'),
-    'ann': ('', 'YS')
+    'ann': ('', 'YS'),
+    '2qsapr': ('','2QS-APR'),
+    'winter': ('_winterDJF', 'QS-DEC'),
+    'spring': ('_springMAM', 'QS-DEC'),
+    'summer': ('_summerJJA', 'QS-DEC'),
+    'fall': ('_fallSON', 'QS-DEC')
 }
 
 MONTH_OUTPUT_LUT= {

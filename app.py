@@ -36,7 +36,6 @@ def open_dataset(var, msys, month, formats, root):
                                    var=var,
                                    msys=msys,
                                    month=month)
-
             dataset=  xr.open_dataset(dataseturl, decode_times=False)
             dataset['time'] = xr.decode_cf(dataset).time
             return dataset
@@ -83,7 +82,7 @@ def generate_charts(var, lat, lon, month='ann'):
     anusplin_dataset = open_dataset(var, msys, monthpath,
                                     app.config['NETCDF_ANUSPLINV1_FILENAME_FORMATS'],
                                     app.config['NETCDF_ANUSPLINV1_YEARLY_FOLDER'])
-    anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
+    anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon']).dropna('time')
     if anusplin_location_slice[var].attrs.get('units') == 'K':
         anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
 
@@ -92,7 +91,7 @@ def generate_charts(var, lat, lon, month='ann'):
                                  app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
     # TODO-to-validate: even if bccaq and anusplin has the same grid, because of rounding issues
     # there are some edge cases where the bccaq slice may not geographically match the anusplin slice
-    bccaq_location_slice = bccaq_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
+    bccaq_location_slice = bccaq_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon']).dropna('time')
     if bccaq_location_slice['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
         bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
 
