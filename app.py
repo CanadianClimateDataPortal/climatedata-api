@@ -341,7 +341,7 @@ def get_location_values_allyears():
 def check_status():
     for check in app.config['SYSTEM_CHECKS']:
         try:
-            r = requests.get(check['URL'].format(app.config['SYSTEM_CHECKS_HOST']))
+            r = requests.get(check['URL'].format(app.config['SYSTEM_CHECKS_HOST']), timeout=5)
             assert r.status_code == 200
             check['validator'](r.content)
         except Exception as ex:
