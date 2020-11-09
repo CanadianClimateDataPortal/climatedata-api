@@ -79,6 +79,9 @@ def generate_charts(var, lat, lon, month='ann'):
     if var in app.config['SPEI_VARIABLES']:
         return generate_spei_charts(var, lati, loni, month)
 
+    if var == 'slr':
+        return generate_slr_charts(lati, loni)
+
     anusplin_dataset = open_dataset(var, msys, monthpath,
                                     app.config['NETCDF_ANUSPLINV1_FILENAME_FORMATS'],
                                     app.config['NETCDF_ANUSPLINV1_YEARLY_FOLDER'])
@@ -142,7 +145,22 @@ def generate_spei_charts(var, lati, loni, month):
                                                           location_slice['{}_spei_p90'.format(model)]]))
     return  return_values
 
+"""
+    Copied from generate_spei_charts: no historical, no observations, single file
+"""
+def generate_slr_charts(lati, loni):
+    dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'])
+    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon']).dropna('time')
+    return_values = {}
+    return_values['observations']= []
+    return_values['modeled_historical_median']=[]
+    return_values['modeled_historical_range']=[]
 
+    for model in app.config['MODELS']:
+        return_values[model + '_median'] = convert_dataset_to_list(location_slice['{}_slr_p50'.format(model)])
+        return_values[model + '_range'] = convert_dataset_to_list(xr.merge([location_slice['{}_slr_p05'.format(model)],
+                                                          location_slice['{}_slr_p95'.format(model)]]))
+    return  return_values
 
 
 """
