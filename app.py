@@ -79,13 +79,17 @@ def generate_charts(var, lat, lon, month='ann'):
     if var in app.config['SPEI_VARIABLES']:
         return generate_spei_charts(var, lati, loni, month)
 
+    # so does sea level rise
     if var == 'slr':
         return generate_slr_charts(lati, loni)
 
+    monthnumber = app.config['MONTH_NUMBER_LUT'][month]
     anusplin_dataset = open_dataset(var, msys, monthpath,
                                     app.config['NETCDF_ANUSPLINV1_FILENAME_FORMATS'],
                                     app.config['NETCDF_ANUSPLINV1_YEARLY_FOLDER'])
     anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon']).dropna('time')
+    anusplin_location_slice = anusplin_location_slice.sel(time=(anusplin_location_slice.time.dt.month == monthnumber))
+
     if anusplin_location_slice[var].attrs.get('units') == 'K':
         anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
 

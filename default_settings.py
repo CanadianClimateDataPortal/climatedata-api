@@ -8,7 +8,7 @@ SENTRY_ENV="dev"
 NETCDF_BCCAQV2_FILENAME_FORMATS=["{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{msys}{month}.nc",
                          "{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1950-2100_{var}_{msys}{month}.nc"]
 
-NETCDF_ANUSPLINV1_FILENAME_FORMATS=["{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}{month}.nc"]
+NETCDF_ANUSPLINV1_FILENAME_FORMATS=["{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}.nc"]
 NETCDF_SPEI_FILENAME_FORMATS="{root}/{var}/SPEI_ensemble_percentiles_allrcps_MON_1900_2100_{var}.nc"
 NETCDF_SPEI_OBSERVED_FILENAME_FORMATS="{root}/{var}/CCRC_CANGRD_MON_1900_2014_spei_bc_ref_period_195001_200512_timev_{var}.nc"
 
@@ -114,7 +114,12 @@ MONTH_NUMBER_LUT = {
     'oct': 10,
     'nov': 11,
     'dec': 12,
-    'ann': 1
+    'ann': 1,
+    '2qsapr': 4,
+    'winter':12,
+    'spring':3,
+    'summer': 6,
+    'fall': 9
 }
 
 PARTITIONS_FOLDER = {'census': {'ANUSPLIN': './netcdfs',
