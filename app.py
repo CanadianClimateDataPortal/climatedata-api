@@ -11,6 +11,7 @@ import sentry_sdk
 from textwrap import dedent
 from sentry_sdk.integrations.flask import FlaskIntegration
 import requests
+from itertools import starmap
 
 
 app = Flask(__name__)
@@ -265,11 +266,17 @@ def get_dataset_values(args, json_format, download=False):
             raise ValueError
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
-
-    dataset = open_dataset(var, msys, monthpath,
-                           app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
-                           app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
-    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest')
+    if var == 'slr':
+        dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'])
+    elif var in app.config['SPEI_VARIABLES']:
+        monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+        dataset = open_dataset_by_path(app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'],var=var))
+        dataset = dataset.sel(time=(dataset.time.dt.month == monthnumber))
+    else:
+        dataset = open_dataset(var, msys, monthpath,
+                               app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
+                               app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
+    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').dropna('time')
     data_frame = location_slice.to_dataframe()
     dropped_data_frame = data_frame.drop(columns=['lon', 'lat'], axis=1)
     json_frame = dropped_data_frame.to_json(**json_format)
@@ -353,6 +360,111 @@ def get_location_values_allyears():
         "bcc_2070_precip": bcc_2070_precip,
         "bcc_2090_precip": bcc_2070_precip # useless value kept for frontend transition
     })
+"""
+    Returns a new function that returns a dataframe for a specific coordinate (lat,lon)
+"""
+def  getframe(dataset,adjust):
+    return lambda lat,lon: (dataset.sel(lat=lat,lon=lon, method='nearest').dropna('time') + adjust).to_dataframe()
+
+"""
+    Outputs a dataframe to JSON for use with the portal
+    Parameters:
+      df: the dataframe
+      freq: the frequency sampling (MS|YS)
+      month: the period if the frequency sampling requires one
+"""
+def outputJSON(df, var, freq, period=''):
+    if freq == 'YS':
+        calculated = 'by year'
+        monthstr = ''
+
+    if freq == 'MS':
+        calculated = 'by month'
+        monthstr = f""""month": "{period}","""
+
+    return dedent(f"""\
+    [{{"variable": "{var}",
+       "calculated": "{calculated}",
+       {monthstr}
+       "latitude": {df.lat[0]},
+       "longitude": {df.lon[0]} }},
+       {{"data": {df.drop(columns=['lon', 'lat'], axis=1).to_json(orient='index', date_format='iso', date_unit='s', double_precision=2)} }}]
+    """)
+
+
+"""
+    Performs a download of annual/monthly dataset.
+    example POST data:
+    { 'var' : 'tx_max',
+      'month' : 'jan',
+      'format' : 'json',
+      'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+    }
+    
+    CURL format:
+    curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+      "month" : "jan",
+      "format" : "json",
+      "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+    }'
+    
+    slr example:
+    curl -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "slr",
+      "month" : "ann",
+      "format" : "csv",
+      "points": [[55.615479404227266,-80.75205994818893], [55.615479404227266,-80.57633593798099], [55.54715240897225,-80.63124969117096], [55.54093496609795,-80.70812894563693]]
+    }'
+    
+    spei example:
+    curl -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "spei_3m",
+      "month" : "dec",
+      "format" : "csv",
+      "points": [[49.97204543090215,-72.96164786407991], [49.05163514254488,-74.11483668106955], [48.23844206206425,-75.04837048529926], [47.16613204524246,-76.00386979080497]]
+    }'
+          
+    var: variable to fetch
+    month: frequency-sampling to fetch
+    format: csv or json
+    points: array of [lat,lon] coordinates
+"""
+@app.route('/download', methods= ['POST'])
+def download():
+    args = request.get_json()
+    try:
+        var = args['var']
+        month = args['month']
+        format = args['format']
+        points = args['points']
+        monthpath, msys = app.config['MONTH_LUT'][month]
+        if var not in app.config['VARIABLES']:
+            raise ValueError
+    except (ValueError, BadRequestKeyError, KeyError, TypeError):
+        return "Bad request", 400
+
+    if var == 'slr':
+        dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'])
+    elif var in app.config['SPEI_VARIABLES']:
+        monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+        dataset = open_dataset_by_path(
+            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'], var=var))
+        dataset = dataset.sel(time=(dataset.time.dt.month == monthnumber))
+    else:
+        dataset = open_dataset(var, msys, monthpath,app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
+                                app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
+    if var not in app.config['SPEI_VARIABLES'] and dataset['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
+        adjust = app.config['KELVIN_TO_C']
+    else:
+        adjust = 0
+    dfs = starmap(getframe(dataset,adjust), points)
+    dfs = filter(lambda df: not df.empty, dfs)
+
+    if format == 'csv':
+        return pd.concat(dfs).to_csv(float_format='%.2f')
+    if format == 'json':
+        return "[" + ",".join(map(lambda df: outputJSON(df, var, msys, month), dfs)) + "]"
+    return ""
+
+
 
 """
     Check server status (geoserver + this app)
