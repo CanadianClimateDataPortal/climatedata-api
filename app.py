@@ -266,17 +266,11 @@ def get_dataset_values(args, json_format, download=False):
             raise ValueError
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
-    if var == 'slr':
-        dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'])
-    elif var in app.config['SPEI_VARIABLES']:
-        monthnumber = app.config['MONTH_NUMBER_LUT'][month]
-        dataset = open_dataset_by_path(app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'],var=var))
-        dataset = dataset.sel(time=(dataset.time.dt.month == monthnumber))
-    else:
-        dataset = open_dataset(var, msys, monthpath,
-                               app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
-                               app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
-    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').dropna('time')
+
+    dataset = open_dataset(var, msys, monthpath,
+                           app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
+                           app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
+    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest')
     data_frame = location_slice.to_dataframe()
     dropped_data_frame = data_frame.drop(columns=['lon', 'lat'], axis=1)
     json_frame = dropped_data_frame.to_json(**json_format)
