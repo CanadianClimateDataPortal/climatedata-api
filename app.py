@@ -457,9 +457,9 @@ def download():
     dfs = filter(lambda df: not df.empty, dfs)
 
     if format == 'csv':
-        return pd.concat(dfs).to_csv(float_format='%.2f')
+        return Response(pd.concat(dfs).to_csv(float_format='%.2f'), mimetype='text/csv')
     if format == 'json':
-        return "[" + ",".join(map(lambda df: outputJSON(df, var, freq, month), dfs)) + "]"
+        return Response("[" + ",".join(map(lambda df: outputJSON(df, var, freq, month), dfs)) + "]", mimetype='application/json')
     return "Bad request", 400
 
 
