@@ -393,8 +393,8 @@ def outputJSON(df, var, freq, period=''):
     [{{"variable": "{var}",
        "calculated": "{calculated}",
        {monthstr}
-       "latitude": {df.lat[0]},
-       "longitude": {df.lon[0]} }},
+       "latitude": {df.lat[0]:.2f},
+       "longitude": {df.lon[0]:.2f} }},
        {{"data": {df.drop(columns=['lon', 'lat'], axis=1).to_json(orient='index', date_format='iso', date_unit='s', double_precision=2)} }}]
     """)
 
