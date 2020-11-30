@@ -380,6 +380,15 @@ def outputJSON(df, var, freq, period=''):
         calculated = 'by month'
         monthstr = f""""month": "{period}","""
 
+    if freq == 'QS-DEC':
+        calculated = 'by season'
+        monthstr = f""""season": "{period}","""
+
+    if freq == '2QS-APR':
+        calculated = 'from April to September'
+        monthstr = ''
+
+
     return dedent(f"""\
     [{{"variable": "{var}",
        "calculated": "{calculated}",
