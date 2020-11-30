@@ -356,6 +356,9 @@ def get_location_values_allyears():
     })
 """
     Returns a new function that returns a dataframe for a specific coordinate (lat,lon)
+    Parameters:
+      dataset: the xarray dataset to convert
+      adjust: constant to add to the whole dataset after the select but before conversion (ex: for Kelvin to °C) 
 """
 def  getframe(dataset,adjust):
     return lambda lat,lon: (dataset.sel(lat=lat,lon=lon, method='nearest').dropna('time') + adjust).to_dataframe()
@@ -364,8 +367,9 @@ def  getframe(dataset,adjust):
     Outputs a dataframe to JSON for use with the portal
     Parameters:
       df: the dataframe
+      var: name of the variable to export
       freq: the frequency sampling (MS|YS)
-      month: the period if the frequency sampling requires one
+      period: the period if the frequency sampling requires one
 """
 def outputJSON(df, var, freq, period=''):
     if freq == 'YS':
@@ -456,7 +460,7 @@ def download():
         return pd.concat(dfs).to_csv(float_format='%.2f')
     if format == 'json':
         return "[" + ",".join(map(lambda df: outputJSON(df, var, msys, month), dfs)) + "]"
-    return ""
+    return "Bad request", 400
 
 
 
