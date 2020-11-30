@@ -433,7 +433,7 @@ def download():
         month = args['month']
         format = args['format']
         points = args['points']
-        monthpath, msys = app.config['MONTH_LUT'][month]
+        monthpath, freq = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
     except (ValueError, BadRequestKeyError, KeyError, TypeError):
@@ -447,7 +447,7 @@ def download():
             app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'], var=var))
         dataset = dataset.sel(time=(dataset.time.dt.month == monthnumber))
     else:
-        dataset = open_dataset(var, msys, monthpath,app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
+        dataset = open_dataset(var, freq, monthpath,app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
                                 app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
     if var not in app.config['SPEI_VARIABLES'] and dataset['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
         adjust = app.config['KELVIN_TO_C']
@@ -459,7 +459,7 @@ def download():
     if format == 'csv':
         return pd.concat(dfs).to_csv(float_format='%.2f')
     if format == 'json':
-        return "[" + ",".join(map(lambda df: outputJSON(df, var, msys, month), dfs)) + "]"
+        return "[" + ",".join(map(lambda df: outputJSON(df, var, freq, month), dfs)) + "]"
     return "Bad request", 400
 
 
