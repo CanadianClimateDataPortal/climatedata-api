@@ -260,56 +260,6 @@ def get_choro_values(partition, var, model, month='ann'):
                         .round(2).fillna(0).transpose().values.tolist()[0]),
                     mimetype='application/json')
 
-def get_dataset_values(args, json_format, download=False):
-    try:
-        lati = float(args['lat'])
-        loni = float(args['lon'])
-        var = args['var']
-        month = request.args.get('month','ann')
-        monthpath,msys = app.config['MONTH_LUT'][month]
-        if var not in app.config['VARIABLES']:
-            raise ValueError
-    except (ValueError, BadRequestKeyError, KeyError):
-        return "Bad request", 400
-
-    dataset = open_dataset(var, msys, monthpath,
-                           app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
-                           app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
-    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest')
-    data_frame = location_slice.to_dataframe()
-    dropped_data_frame = data_frame.drop(columns=['lon', 'lat'], axis=1)
-    json_frame = dropped_data_frame.to_json(**json_format)
-    if download:
-        if msys == 'YS':
-            return dedent("""\
-                [{{"variable": "{var}",
-                "calculated": "by year",
-                "latitude": {lat},
-                "longitude": {lon}}},
-                {{"data":
-                """.format(var=var,lat=lati, lon=loni)) + json_frame + '}]'
-        else:
-            return dedent("""\
-                [{{"variable": "{var}",
-                "calculated": "by month",
-                "month": "{month}",
-                "latitude": {lat},
-                "longitude": {lon}}},
-                {{"data":
-                """.format(var=var, lat=lati, lon=loni, month=app.config['MONTH_OUTPUT_LUT'][month])) + json_frame + '}]'
-    else:
-        return json_frame
-
-
-
-@app.route('/get_values.php')
-def get_values():
-    return get_dataset_values(request.args, {'orient': 'values', 'date_format': 'epoch', 'date_unit': 's'})
-
-@app.route('/download_csv.php')
-def download_csv():
-    return get_dataset_values(request.args, {'orient': 'index', 'date_format': 'iso', 'date_unit': 's'}, download=True)
-
 @app.route('/get_location_values_allyears.php')
 def get_location_values_allyears():
     try:
