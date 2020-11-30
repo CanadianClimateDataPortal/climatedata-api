@@ -123,6 +123,11 @@ def generate_charts(var, lat, lon, month='ann'):
     Copied from generate-charts, but handles the exceptions for SPEI (i.e. single file)
 """
 def generate_spei_charts(var, lati, loni, month):
+
+    # very specific exception for location page, return december values (annual doesn't exists anyway for SPEI)
+    if month == 'ann':
+        month = 'dec'
+
     monthnumber = app.config['MONTH_NUMBER_LUT'][month]
     dataset = open_dataset_by_path(app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'],var=var))
     observed_dataset = open_dataset_by_path(app.config['NETCDF_SPEI_OBSERVED_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'],var=var))
