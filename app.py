@@ -438,7 +438,8 @@ def check_status():
     for check in app.config['SYSTEM_CHECKS']:
         try:
             r = requests.get(check['URL'].format(app.config['SYSTEM_CHECKS_HOST']), timeout=5)
-            assert r.status_code == 200
+            if r.status_code != 200:
+                raise Exception('Status not 200')
             check['validator'](r.content)
         except Exception as ex:
             if app.config['DEBUG']:

@@ -137,8 +137,8 @@ PARTITIONS_PATH_FORMATS = {'census': {'allyears': "{root}/{var}/{msys}/{msys}_{v
 
 SYSTEM_CHECKS_HOST = "http://localhost"
 SYSTEM_CHECKS= [
-    {'name': 'get_values',
-    'URL': "{}/get_values.php?lat=45.5833333&lon=-73.75&var=frost_days&month=ann",
+    {'name': 'generate-charts',
+    'URL': "{}/generate-charts/45.5833333/-73.75/frost_days/ann",
     'validator': json.loads},
     {'name': 'get_location_values_allyears',
      'URL': "{}/get_location_values_allyears.php?lat=45.583333&lon=-73.75&time=2100-01-01",
