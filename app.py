@@ -400,6 +400,11 @@ def download():
         monthpath, freq = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
+        if len(points) ==0:
+            raise ValueError
+        for p in points:
+            if len(p) != 2:
+                raise ValueError
     except (ValueError, BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
