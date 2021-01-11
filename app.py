@@ -11,7 +11,6 @@ import sentry_sdk
 from textwrap import dedent
 from sentry_sdk.integrations.flask import FlaskIntegration
 import requests
-from itertools import starmap
 
 
 app = Flask(__name__)
@@ -311,14 +310,22 @@ def get_location_values_allyears():
         "bcc_2070_precip": bcc_2070_precip,
         "bcc_2090_precip": bcc_2070_precip # useless value kept for frontend transition
     })
+
 """
-    Returns a new function that returns a dataframe for a specific coordinate (lat,lon)
+    Returns a dataframe for a specific coordinate (lat,lon)
     Parameters:
       dataset: the xarray dataset to convert
-      adjust: constant to add to the whole dataset after the select but before conversion (ex: for Kelvin to °C) 
+      point (1x2 array): coordinates to select [lat,lon]
+      adjust: constant to add to the whole dataset after the select but before conversion (ex: for Kelvin to °C)
+      limit: lower time limit of the data to keep 
 """
-def  getframe(dataset,adjust):
-    return lambda lat,lon: (dataset.sel(lat=lat,lon=lon, method='nearest').dropna('time') + adjust).to_dataframe()
+def getframe(dataset, point, adjust, limit = None):
+    ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
+    if adjust:
+        ds= ds + adjust
+    if limit:
+       ds = ds.where(ds.time >= np.datetime64(limit), drop=True)
+    return ds.to_dataframe()
 
 """
     Outputs a dataframe to JSON for use with the portal
@@ -410,6 +417,7 @@ def download():
     except (ValueError, BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
+    limit = None
     if var == 'slr':
         dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'])
     elif var in app.config['SPEI_VARIABLES']:
@@ -417,6 +425,7 @@ def download():
         dataset = open_dataset_by_path(
             app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'], var=var))
         dataset = dataset.sel(time=(dataset.time.dt.month == monthnumber))
+        limit = app.config['SPEI_DATE_LIMIT']
     else:
         dataset = open_dataset(var, freq, monthpath,app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
                                 app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
@@ -424,7 +433,8 @@ def download():
         adjust = app.config['KELVIN_TO_C']
     else:
         adjust = 0
-    dfs = starmap(getframe(dataset,adjust), points)
+
+    dfs = [getframe(dataset, p, adjust, limit) for p in points]
     dfs = filter(lambda df: not df.empty, dfs)
 
     if format == 'csv':
