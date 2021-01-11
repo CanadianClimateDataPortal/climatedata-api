@@ -137,12 +137,14 @@ def generate_spei_charts(var, lati, loni, month):
 
     observed_location_slice = observed_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon','scale']).dropna('time')
     observed_location_slice = observed_location_slice.sel(time=(observed_location_slice.time.dt.month == monthnumber))
-
+    observed_location_slice = observed_location_slice.where(observed_location_slice.time >= np.datetime64(app.config['SPEI_DATE_LIMIT']), drop=True)
     return_values = {}
     return_values['observations']= convert_dataset_to_list(observed_location_slice)
 
     # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
     location_slice_historical = location_slice.where(location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
+    location_slice_historical = location_slice_historical.where(
+        location_slice.time >= np.datetime64(app.config['SPEI_DATE_LIMIT']), drop=True)
     return_values['modeled_historical_median'] = convert_dataset_to_list(location_slice_historical['rcp26_spei_p50'])
     return_values['modeled_historical_range'] = convert_dataset_to_list(xr.merge([location_slice_historical['rcp26_spei_p10'],
                                                                                   location_slice_historical['rcp26_spei_p90']]))
