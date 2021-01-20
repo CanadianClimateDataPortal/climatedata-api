@@ -182,7 +182,7 @@ def generate_slr_charts(lati, loni):
 def generate_regional_charts(partition, index, var, month='ann'):
     try:
         indexi = int(index)
-        msys = "YS" if month == "ann" else "MS"
+        msys = app.config['MONTH_LUT'][month][1]
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
@@ -200,15 +200,15 @@ def generate_regional_charts(partition, index, var, month='ann'):
 
 
     anusplin_dataset = open_dataset_by_path(anusplin_path)
-    anusplin_location_slice = anusplin_dataset.sel(region=indexi).drop([i for i in anusplin_dataset.coords if i != 'time'])
+    anusplin_location_slice = anusplin_dataset.sel(region=indexi).drop([i for i in anusplin_dataset.coords if i != 'time']).dropna('time')
     if anusplin_location_slice[var].attrs.get('units') == 'K':
         anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
 
     bccaq_dataset = open_dataset_by_path(bccaq_path)
-    bccaq_location_slice = bccaq_dataset.sel(region= indexi).drop([i for i in anusplin_dataset.coords if i != 'time'])
+    bccaq_location_slice = bccaq_dataset.sel(region= indexi).drop([i for i in anusplin_dataset.coords if i != 'time']).dropna('time')
 
-    # we filter the appropriate month from the MS-allyears file
-    if msys == "MS":
+    # we filter the appropriate month/season from the MS or QS-DEC file
+    if msys in ["MS", "QS-DEC"]:
         bccaq_location_slice= bccaq_location_slice.sel(time=(bccaq_location_slice.time.dt.month == monthnumber))
         anusplin_location_slice = anusplin_location_slice.sel(time=(anusplin_location_slice.time.dt.month == monthnumber))
 
@@ -239,7 +239,7 @@ def generate_regional_charts(partition, index, var, month='ann'):
 @app.route('/get-choro-values/<partition>/<var>/<model>')
 def get_choro_values(partition, var, model, month='ann'):
     try:
-        msys = "YS" if month == "ann" else "MS"
+        msys = app.config['MONTH_LUT'][month][1]
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
         if model not in app.config['MODELS']:
             raise ValueError
