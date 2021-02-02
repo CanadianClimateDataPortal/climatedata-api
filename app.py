@@ -441,8 +441,12 @@ def download():
         adjust = 0
 
     dfs = [[getframe(dataset, p, adjust, limit) for dataset in datasets] for p in points ]
+
+    # remove empty dataframes
     dfs = [[df for df in dflist if not df.empty] for dflist in dfs]
     dfs = [dflist for dflist in dfs if not len(dflist)==0]
+    if len(dfs)==0:
+        return "No points found", 404
 
     if format == 'csv':
         dfs=[j for sub in dfs for j in sub]   # flattens sublists
