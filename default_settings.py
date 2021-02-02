@@ -78,6 +78,7 @@ MONTH_LUT= {
     'oct': ('_10October', 'MS'),
     'nov': ('_11November', 'MS'),
     'dec': ('_12December', 'MS'),
+    'all': ('_', 'MS'),  # valid for download only
     'ann': ('', 'YS'),
     '2qsapr': ('','2QS-APR'),
     'winter': ('_winterDJF', 'QS-DEC'),
@@ -85,6 +86,19 @@ MONTH_LUT= {
     'summer': ('_summerJJA', 'QS-DEC'),
     'fall': ('_fallSON', 'QS-DEC')
 }
+
+ALLMONTHS=['_01January',
+            '_02February',
+            '_03March',
+            '_04April',
+            '_05May',
+            '_06June',
+            '_07July',
+            '_08August',
+            '_09September',
+            '_10October',
+            '_11November',
+            '_12December']
 
 MONTH_OUTPUT_LUT= {
     'jan': 'January',

@@ -419,28 +419,36 @@ def download():
 
     limit = None
     if var == 'slr':
-        dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'])
+        datasets = [open_dataset_by_path(app.config['NETCDF_SLR_PATH'])]
     elif var in app.config['SPEI_VARIABLES']:
-        monthnumber = app.config['MONTH_NUMBER_LUT'][month]
-        dataset = open_dataset_by_path(
-            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'], var=var))
-        dataset = dataset.sel(time=(dataset.time.dt.month == monthnumber))
+        datasets = [open_dataset_by_path(
+            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'], var=var))]
+        if month != 'all':
+            monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+            datasets[0] = datasets[0].sel(time=(datasets[0].time.dt.month == monthnumber))
         limit = app.config['SPEI_DATE_LIMIT']
     else:
-        dataset = open_dataset(var, freq, monthpath,app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
-                                app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])
-    if var not in app.config['SPEI_VARIABLES'] and dataset['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
+        if month == 'all':
+            datasets = [open_dataset(var, freq, m, app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
+                                     app.config['NETCDF_BCCAQV2_YEARLY_FOLDER']) for m in  app.config['ALLMONTHS']]
+        else:
+            datasets = [open_dataset(var, freq, monthpath,app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
+                                app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])]
+
+    if var not in app.config['SPEI_VARIABLES'] and datasets[0]['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
         adjust = app.config['KELVIN_TO_C']
     else:
         adjust = 0
 
-    dfs = [getframe(dataset, p, adjust, limit) for p in points]
-    dfs = filter(lambda df: not df.empty, dfs)
+    dfs = [[getframe(dataset, p, adjust, limit) for dataset in datasets] for p in points ]
+    dfs = [[df for df in dflist if not df.empty] for dflist in dfs]
+    dfs = [dflist for dflist in dfs if not len(dflist)==0]
 
     if format == 'csv':
-        return Response(pd.concat(dfs).to_csv(float_format='%.2f'), mimetype='text/csv')
+        dfs=[j for sub in dfs for j in sub]   # flattens sublists
+        return Response(pd.concat(dfs).sort_values(by=['lat','lon','time']).to_csv(float_format='%.2f'), mimetype='text/csv')
     if format == 'json':
-        return Response("[" + ",".join(map(lambda df: outputJSON(df, var, freq, month), dfs)) + "]", mimetype='application/json')
+        return Response("[" + ",".join(map(lambda df: outputJSON(pd.concat(df).sort_values(by='time'), var, freq, month), dfs)) + "]", mimetype='application/json')
     return "Bad request", 400
 
 
