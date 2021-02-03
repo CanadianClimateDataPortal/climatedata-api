@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, send_file
 import json
 from werkzeug.exceptions import BadRequestKeyError
 import sentry_sdk
@@ -11,6 +11,8 @@ import sentry_sdk
 from textwrap import dedent
 from sentry_sdk.integrations.flask import FlaskIntegration
 import requests
+import os
+import tempfile
 
 
 app = Flask(__name__)
@@ -456,6 +458,85 @@ def download():
     return "Bad request", 400
 
 
+"""
+    download one or multiple AHCCD station data
+
+    curl examples:
+    # case where two stations are in both temperatures and precipitations
+    curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3081680","8400413"]}'
+    # case where the station is only in precipitations
+    curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3034720"]}'
+    # case where the station is only in temperature
+    curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["8402757"]}'
+    # case where one stations is in temperatures and the other in precipitations
+    curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3034720","8402757"]}'
+"""
+@app.route('/download-ahccd', methods= ['POST'])
+def download_ahccd():
+    args = request.get_json()
+    try:
+        stations = args['stations']
+        format = args['format']
+        if len(stations) ==0:
+            raise ValueError
+    except (ValueError, BadRequestKeyError, KeyError, TypeError):
+        return "Bad request", 400
+
+    # some local config variables
+    commondrops = ['fromyear', 'frommonth', 'toyear', 'tomonth', 'stnid']
+    variables = [
+        {'name': 'tas',
+         'filename': 'ahccd_gen3_tas.nc',
+         'drops': commondrops + ['no', 'pct_miss', 'joined', 'rcs']},
+        {'name': 'tasmax',
+         'filename': 'ahccd_gen3_tasmax.nc',
+         'drops': commondrops + ['no', 'pct_miss', 'joined', 'rcs']},
+        {'name': 'tasmin',
+         'filename': 'ahccd_gen3_tasmin.nc',
+         'drops': commondrops + ['no', 'pct_miss', 'joined', 'rcs']},
+        {'name': 'pr',
+         'filename': 'ahccd_gen2_pr.nc',
+         'drops': commondrops + ['stns_joined']},
+        {'name': 'prlp',
+         'filename': 'ahccd_gen2_prlp.nc',
+         'drops': commondrops + ['stns_joined']},
+        {'name': 'prsn',
+         'filename': 'ahccd_gen2_prsn.nc',
+         'drops': commondrops + ['stns_joined']}]
+
+    allds = []
+    encoding = {}
+
+    for var in variables:
+        ds = xr.open_dataset(os.path.join(app.config['AHCCD_FOLDER'],var['filename']), mask_and_scale=False, decode_times=False)
+        ds['time'] = xr.decode_cf(ds).time
+        s = list(set(stations).intersection(set(ds['station'].values)))
+        if s:
+            ds = ds.sel(station=s)
+            time_idx = slice(f'{int(ds.fromyear.min().values)}', f'{int(ds.toyear.max().values)}')
+            ds = ds.sel(time=time_idx).drop(var['drops']).load()
+            allds.append(ds)
+            encoding[var['name']] = {"zlib": True}
+
+    # we copy missing attributes of stations not present in the tas dataset
+    if len(allds) == len(variables):
+        for s in stations:
+            if s not in allds[0]['station']:
+                allds[0] = xr.merge([allds[0], allds[3].sel(station=[s]).drop(['pr', 'pr_flag'])],
+                                    compat="no_conflicts")
+
+    ds = xr.merge(allds, compat="override")
+    if format == 'netcdf':
+        filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))
+        ds.to_netcdf(filename, encoding=encoding)
+        f = open(filename, "rb")
+        os.unlink(filename)
+        return send_file(f,mimetype='application/x-netcdf4', as_attachment=True, attachment_filename='ahccd.nc')
+
+    if format == 'csv':
+        return Response(ds.to_dataframe().to_csv(chunksize=100000), mimetype='text/csv')
+
+    return "Bad request", 400
 
 """
     Check server status (geoserver + this app)
