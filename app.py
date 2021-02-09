@@ -463,7 +463,10 @@ def download():
 
     curl examples:
     # case where two stations are in both temperatures and precipitations
-    curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3081680","8400413"]}'
+    POST:
+        curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3081680","8400413"]}'
+    GET:
+        curl -s "http://localhost:5000/download-ahccd?format=csv&stations=3081680,8400413"
     # case where the station is only in precipitations
     curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3034720"]}'
     # case where the station is only in temperature
@@ -471,11 +474,16 @@ def download():
     # case where one stations is in temperatures and the other in precipitations
     curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3034720","8402757"]}'
 """
-@app.route('/download-ahccd', methods= ['POST'])
+@app.route('/download-ahccd', methods=['GET','POST'])
 def download_ahccd():
-    args = request.get_json()
     try:
-        stations = args['stations']
+        if request.method == 'POST':
+            args = request.get_json()
+            stations = args['stations']
+        else:
+            args = request.args
+            stations = args['stations'].split(',')
+
         format = args['format']
         if len(stations) ==0:
             raise ValueError
