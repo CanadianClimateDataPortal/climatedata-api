@@ -152,6 +152,10 @@ PARTITIONS_PATH_FORMATS = {'census': {'allyears': "{root}/{var}/{msys}/allrcps/{
                                          'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"}}
 
 AHCCD_FOLDER = './netcdfs/ahccd'
+AHCCD_ORDER = ['station_name', 'lon', 'lat', 'elev', 'prov',
+             'tas', 'tas_flag', 'tasmax', 'tasmax_flag', 'tasmin', 'tasmin_flag',
+             'pr', 'pr_flag', 'prlp', 'prlp_flag', 'prsn', 'prsn_flag']
+
 SYSTEM_CHECKS_HOST = "http://localhost"
 SYSTEM_CHECKS= [
     {'name': 'generate-charts',

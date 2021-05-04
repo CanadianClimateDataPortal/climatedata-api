@@ -4,3 +4,4 @@ __pycache__
 netcdfs
 local_settings.py
 *.urls
+venv

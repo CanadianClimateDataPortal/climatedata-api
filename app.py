@@ -542,7 +542,9 @@ def download_ahccd():
         return send_file(f,mimetype='application/x-netcdf4', as_attachment=True, attachment_filename='ahccd.nc')
 
     if format == 'csv':
-        return Response(ds.to_dataframe().to_csv(chunksize=100000),
+        df = ds.to_dataframe()
+        df = df.reindex(columns=[c for c in app.config['AHCCD_ORDER'] if c in df.columns])
+        return Response(df.to_csv(chunksize=100000),
                         mimetype='text/csv',
                         headers={"Content-disposition": "attachment; filename=ahccd.csv"})
 
