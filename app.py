@@ -536,7 +536,7 @@ def download_ahccd():
     ds = xr.merge(allds, compat="override")
     if format == 'netcdf':
         filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))
-        ds.to_netcdf(filename, encoding=encoding)
+        ds.to_netcdf(filename, encoding=encoding, format='NETCDF4_CLASSIC')
         f = open(filename, "rb")
         os.unlink(filename)
         return send_file(f,mimetype='application/x-netcdf4', as_attachment=True, attachment_filename='ahccd.nc')
