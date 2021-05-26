@@ -162,16 +162,20 @@ def generate_spei_charts(var, lati, loni, month):
 def generate_slr_charts(lati, loni):
     dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'])
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon']).dropna('time')
+
+    dataset_enhanced = open_dataset_by_path(app.config['NETCDF_SLR_ENHANCED_PATH'])
+    enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
+
     return_values = {}
-    return_values['observations']= []
-    return_values['modeled_historical_median']=[]
-    return_values['modeled_historical_range']=[]
 
     for model in app.config['MODELS']:
         return_values[model + '_median'] = convert_dataset_to_list(location_slice['{}_slr_p50'.format(model)])
         return_values[model + '_range'] = convert_dataset_to_list(xr.merge([location_slice['{}_slr_p05'.format(model)],
                                                           location_slice['{}_slr_p95'.format(model)]]))
-    return  return_values
+    return_values['rcp85_enhanced'] = [[dataset_enhanced['time'].item()/10**6,
+                                        round(enhanced_location_slice['enhanced_p50'].item(),2)]]
+
+    return return_values
 
 
 """
