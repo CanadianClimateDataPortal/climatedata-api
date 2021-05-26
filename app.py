@@ -168,8 +168,9 @@ def generate_slr_charts(lati, loni):
 
     return_values = {}
 
+    # 1136073600000 == 1995-01-01
     for model in app.config['MODELS']:
-        return_values[model + '_median'] = convert_dataset_to_list(location_slice['{}_slr_p50'.format(model)])
+        return_values[model + '_median'] = [[788918400000, 0]] + convert_dataset_to_list(location_slice['{}_slr_p50'.format(model)])
         return_values[model + '_range'] = convert_dataset_to_list(xr.merge([location_slice['{}_slr_p05'.format(model)],
                                                           location_slice['{}_slr_p95'.format(model)]]))
     return_values['rcp85_enhanced'] = [[dataset_enhanced['time'].item()/10**6,
