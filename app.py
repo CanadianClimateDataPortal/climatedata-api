@@ -413,8 +413,15 @@ def download():
         monthpath, freq = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
-        if len(points) ==0:
+        if len(points) == 0:
             raise ValueError
+
+        # Check if user abuses the API
+        points_limit = app.config['DOWNLOAD_POINTS_LIMIT']
+        if month == 'all':
+            points_limit = points_limit / 12
+        if len(points) > points_limit:
+            return "Bad request: too many points requested", 400
         for p in points:
             if len(p) != 2:
                 raise ValueError
