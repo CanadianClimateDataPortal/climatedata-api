@@ -164,16 +164,20 @@ def generate_spei_charts(var, lati, loni, month):
 def generate_slr_charts(lati, loni):
     dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'])
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon']).dropna('time')
-    return_values = {}
-    return_values['observations']= []
-    return_values['modeled_historical_median']=[]
-    return_values['modeled_historical_range']=[]
+
+    dataset_enhanced = open_dataset_by_path(app.config['NETCDF_SLR_ENHANCED_PATH'])
+    enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest').drop(['lat','lon'])
+
+    chart_series = {}
 
     for model in app.config['MODELS']:
-        return_values[model + '_median'] = convert_dataset_to_list(location_slice['{}_slr_p50'.format(model)])
-        return_values[model + '_range'] = convert_dataset_to_list(xr.merge([location_slice['{}_slr_p05'.format(model)],
+        chart_series[model + '_median'] = convert_dataset_to_list(location_slice['{}_slr_p50'.format(model)])
+        chart_series[model + '_range'] = convert_dataset_to_list(xr.merge([location_slice['{}_slr_p05'.format(model)],
                                                           location_slice['{}_slr_p95'.format(model)]]))
-    return  return_values
+    chart_series['rcp85_enhanced'] = [[dataset_enhanced['time'].item()/10**6,
+                                        round(enhanced_location_slice['enhanced_p50'].item(),2)]]
+
+    return chart_series
 
 
 """
@@ -411,8 +415,15 @@ def download():
         monthpath, freq = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
-        if len(points) ==0:
+        if len(points) == 0:
             raise ValueError
+
+        # Check if user abuses the API
+        points_limit = app.config['DOWNLOAD_POINTS_LIMIT']
+        if month == 'all':
+            points_limit = points_limit / 12
+        if len(points) > points_limit:
+            return "Bad request: too many points requested", 400
         for p in points:
             if len(p) != 2:
                 raise ValueError

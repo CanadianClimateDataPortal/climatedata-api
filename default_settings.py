@@ -18,6 +18,7 @@ NETCDF_ANUSPLINV1_YEARLY_FOLDER = "./netcdfs"
 NETCDF_LOCATIONS_FOLDER="./netcdfs/locations"
 NETCDF_SPEI_FOLDER="./netcdfs/SPEI/"
 NETCDF_SLR_PATH="./netcdfs/sealevel/Decadal_CMIP5_ensemble-percentiles_allrcps_2006-2100_slr_YS.nc"
+NETCDF_SLR_ENHANCED_PATH="./netcdfs/sealevel/Decadal_0.1degree_CMIP5_ensemble-percentiles_enhancedscenario_2100_slc_YS_geoserver.nc"
 
 MODELS=['rcp26', 'rcp45', 'rcp85']
 
@@ -25,9 +26,11 @@ HISTORICAL_DATE_LIMIT_BEFORE = '2005-12-31'
 HISTORICAL_DATE_LIMIT_AFTER = '2005-01-01'
 SPEI_DATE_LIMIT = '1950-01-01'
 KELVIN_TO_C = -273.15
+DOWNLOAD_POINTS_LIMIT = 1000
 
 VARIABLES = ['cdd',
              'cddcold_18',
+             'dlyfrzthw_tx0_tn-1',
              'frost_days',
              'first_fall_frost',
              'frost_free_season',
@@ -58,6 +61,7 @@ VARIABLES = ['cdd',
              'txgt_29',
              'txgt_30',
              'txgt_32',
+             'txgt_37',
              'tx_max',
              'tx_mean',
              'slr',
