@@ -2,7 +2,7 @@ from flask import Flask, request, Response, send_file, current_app as app
 from utils import open_dataset, open_dataset_by_path, convert_dataset_to_list, convert_dataset_to_dict
 import numpy as np
 import xarray as xr
-
+from werkzeug.exceptions import BadRequestKeyError
 
 def generate_charts(var, lat, lon, month='ann'):
     """
