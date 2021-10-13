@@ -143,18 +143,27 @@ MONTH_NUMBER_LUT = {
     'fall': 9
 }
 
-PARTITIONS_FOLDER = {'census': {'ANUSPLIN': './netcdfs',
-                                   'BCCAQ': './netcdfs'}}
+PARTITIONS_FOLDER = {
+    'census': {'ANUSPLIN': './netcdfs',
+               'BCCAQ': './netcdfs',
+               '30yGraph': './netcdfs'}}
 
-PARTITIONS_PATH_FORMATS = {'census': {'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
-                                         'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
-                                         'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
-                           'health':    {'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
-                                         'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
-                                         'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
-                           'watershed': {'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
-                                         'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
-                                         'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"}}
+PARTITIONS_PATH_FORMATS = {
+    'census': {
+        'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
+        'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
+        '30yGraph': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
+        'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
+    'health': {
+        'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
+        '30yGraph': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
+        'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
+        'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
+    'watershed': {
+        'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
+        '30yGraph': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
+        'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
+        'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"}}
 
 AHCCD_FOLDER = './netcdfs/ahccd'
 AHCCD_ORDER = ['station_name', 'lon', 'lat', 'elev', 'prov',

@@ -4,6 +4,7 @@ import numpy as np
 import xarray as xr
 from werkzeug.exceptions import BadRequestKeyError
 
+
 def generate_charts(var, lat, lon, month='ann'):
     """
     Rewrite of get_values, generating a JSON ready for highcharts
@@ -181,6 +182,10 @@ def generate_regional_charts(partition, index, var, month='ann'):
             root=app.config['PARTITIONS_FOLDER'][partition]['ANUSPLIN'],
             var=var,
             msys=msys)
+        delta30y_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['30yGraph'].format(
+            root=app.config['PARTITIONS_FOLDER'][partition]['30yGraph'],
+            var=var,
+            msys=msys)
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
@@ -192,13 +197,20 @@ def generate_regional_charts(partition, index, var, month='ann'):
 
     bccaq_dataset = open_dataset_by_path(bccaq_path)
     bccaq_location_slice = bccaq_dataset.sel(region=indexi).drop(
-        [i for i in anusplin_dataset.coords if i != 'time']).dropna('time')
+        [i for i in bccaq_dataset.coords if i != 'time']).dropna('time')
+
+    delta_30y_dataset = open_dataset_by_path(delta30y_path)
+    delta_30y_slice = delta_30y_dataset.sel(region=indexi).drop(
+        [i for i in delta_30y_dataset.coords if i != 'time']).dropna('time')
 
     # we filter the appropriate month/season from the MS or QS-DEC file
     if msys in ["MS", "QS-DEC"]:
         bccaq_location_slice = bccaq_location_slice.sel(time=(bccaq_location_slice.time.dt.month == monthnumber))
         anusplin_location_slice = anusplin_location_slice.sel(
             time=(anusplin_location_slice.time.dt.month == monthnumber))
+        delta_30y_slice = delta_30y_slice.sel(
+            time=(delta_30y_slice.time.dt.month == monthnumber))
+
 
     if bccaq_location_slice['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
         bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
@@ -222,4 +234,24 @@ def generate_regional_charts(partition, index, var, month='ann'):
         chart_series[model + '_range'] = convert_dataset_to_list(
             xr.merge([bccaq_location_slice['{model}_{var}_p10'.format(var=var, model=model)],
                       bccaq_location_slice['{model}_{var}_p90'.format(var=var, model=model)]]))
+
+    # collect necessary data for 30y and deltas
+
+    for model in app.config['MODELS']:
+        chart_series[f"delta7100_{model}_median"] = convert_dataset_to_dict(
+            delta_30y_slice[f'{model}_{var}_delta7100_p50'])
+        chart_series[f"delta7100_{model}_range"] = convert_dataset_to_dict(
+            xr.merge([delta_30y_slice[f'{model}_{var}_delta7100_p10'],
+                      delta_30y_slice[f'{model}_{var}_delta7100_p90']]))
+
+    if delta_30y_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K':
+        delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
+
+    for model in app.config['MODELS']:
+        chart_series[f"30y_{model}_median"] = convert_dataset_to_dict(delta_30y_slice[f'{model}_{var}_p50'])
+        chart_series[f"30y_{model}_range"] = convert_dataset_to_dict(xr.merge([delta_30y_slice[f'{model}_{var}_p10'],
+                                                                               delta_30y_slice[f'{model}_{var}_p90']]))
+    bccaq_dataset.close()
+    anusplin_dataset.close()
+    delta_30y_dataset.close()
     return chart_series
