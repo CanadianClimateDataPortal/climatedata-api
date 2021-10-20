@@ -7,6 +7,8 @@ import xarray as xr
 import pandas as pd
 from utils import open_dataset, open_dataset_by_path
 from werkzeug.exceptions import BadRequestKeyError
+import itertools
+
 
 def get_frame(dataset, point, adjust, limit=None):
     """
@@ -163,6 +165,85 @@ def download():
             map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, month), dfs)) + "]",
                         mimetype='application/json')
     return "Bad request", 400
+
+
+def _format_30y_slice(delta_30y_slice, var, decimals):
+    """
+        Returns a csv response object from a xarray slice
+    """
+    if delta_30y_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K':
+        for v in [v for v in delta_30y_slice.data_vars if 'delta' not in v]:
+            delta_30y_slice[v] = delta_30y_slice[v] + app.config['KELVIN_TO_C']
+    df = delta_30y_slice.to_dataframe()
+    df = df.reindex(columns=["rcp{1}_{var}_{0}p{2}".format(*a, var=var) for a in
+                             itertools.product(['', 'delta7100_'], [26, 45, 85], [10, 50, 90])])
+
+    csv_data = df.to_csv(float_format=f"%.{decimals}f")
+
+    return Response(csv_data, mimetype='text/csv')
+
+
+def download_30y(var, lat, lon, month):
+    """
+        Download the 30y and delta values for a single grid cell
+        ex: curl 'http://localhost:5000/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann'
+    :return: csv string
+    """
+    try:
+        lati = float(lat)
+        loni = float(lon)
+        decimals = request.args.get('decimals', 2)
+        month_path, msys = app.config['MONTH_LUT'][month]
+        if var not in app.config['VARIABLES']:
+            raise ValueError
+    except (ValueError, BadRequestKeyError, KeyError):
+        return "Bad request", 400
+
+    delta_30y_dataset = open_dataset_by_path(
+        app.config['NETCDF_BCCAQV2_30Y_FILENAME_FORMAT'].format(root=app.config['NETCDF_BCCAQV2_30Y_FOLDER'],
+                                                                var=var,
+                                                                msys=msys,
+                                                                month=month_path))
+    delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
+    response = _format_30y_slice(delta_30y_slice, var, decimals)
+    delta_30y_dataset.close()
+    return response
+
+
+def download_regional_30y(partition, index, var, month):
+    """
+        Download the 30y and delta values for a single grid cell
+        ex: curl 'http://localhost:5000/download-regional-30y/census/1/tx_max/ann'
+    :return: csv string
+    """
+    try:
+        indexi = int(index)
+        decimals = request.args.get('decimals', 2)
+        msys = app.config['MONTH_LUT'][month][1]
+        monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+        if var not in app.config['VARIABLES']:
+            raise ValueError
+        delta30y_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['30yGraph'].format(
+            root=app.config['PARTITIONS_FOLDER'][partition]['30yGraph'],
+            var=var,
+            msys=msys)
+    except (ValueError, BadRequestKeyError, KeyError):
+        return "Bad request", 400
+
+    delta_30y_dataset = open_dataset_by_path(delta30y_path)
+    delta_30y_slice = delta_30y_dataset.sel(region=indexi).drop(
+        [i for i in delta_30y_dataset.coords if i != 'time']).dropna('time')
+
+    # we filter the appropriate month/season from the MS or QS-DEC file
+    if msys in ["MS", "QS-DEC"]:
+        delta_30y_slice = delta_30y_slice.sel(
+            time=(delta_30y_slice.time.dt.month == monthnumber))
+
+    response = _format_30y_slice(delta_30y_slice, var, decimals)
+    delta_30y_dataset.close()
+    return response
+
+    return Response(csv_data, mimetype='text/csv')
 
 
 def download_ahccd():

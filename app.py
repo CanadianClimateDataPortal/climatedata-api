@@ -4,7 +4,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 import requests
 from charts import generate_charts, generate_regional_charts
 from map import get_choro_values
-from download import download,download_ahccd
+from download import download, download_ahccd, download_30y, download_regional_30y
 from siteinfo import get_location_values_allyears
 
 import pandas as pd
@@ -36,6 +36,8 @@ app.add_url_rule('/get-choro-values/<partition>/<var>/<model>', view_func=get_ch
 # download routes
 app.add_url_rule('/download', view_func=download, methods=['POST'])
 app.add_url_rule('/download-ahccd', view_func=download_ahccd, methods=['GET', 'POST'])
+app.add_url_rule('/download-30y/<lat>/<lon>/<var>/<month>', view_func=download_30y)
+app.add_url_rule('/download-regional-30y/<partition>/<index>/<var>/<month>', view_func=download_regional_30y)
 
 # various site information
 app.add_url_rule('/get_location_values_allyears.php', view_func=get_location_values_allyears)

@@ -31,7 +31,7 @@ def open_dataset_by_path(path):
         dataset['time'] = xr.decode_cf(dataset).time
         return dataset
     except FileNotFoundError:
-        raise FileNotFoundError("Dataset not found")
+        raise FileNotFoundError(f"Dataset file not found: {path}")
 
 
 def convert_dataset_to_list(dataset):
