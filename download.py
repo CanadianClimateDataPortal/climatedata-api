@@ -180,7 +180,7 @@ def _format_30y_slice(delta_30y_slice, var, decimals):
 
     csv_data = df.to_csv(float_format=f"%.{decimals}f")
 
-    return Response(csv_data, mimetype='text/csv')
+    return Response(csv_data, mimetype='text/csv', headers={"Content-disposition": f"attachment; filename={var}.csv"})
 
 
 def download_30y(var, lat, lon, month):
@@ -242,8 +242,6 @@ def download_regional_30y(partition, index, var, month):
     response = _format_30y_slice(delta_30y_slice, var, decimals)
     delta_30y_dataset.close()
     return response
-
-    return Response(csv_data, mimetype='text/csv')
 
 
 def download_ahccd():
