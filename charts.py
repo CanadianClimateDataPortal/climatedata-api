@@ -1,5 +1,5 @@
 from flask import Flask, request, Response, send_file, current_app as app
-from utils import open_dataset, open_dataset_by_path, convert_dataset_to_list, convert_dataset_to_dict
+from utils import open_dataset, open_dataset_by_path, convert_time_series_dataset_to_list, convert_time_series_dataset_to_dict
 import numpy as np
 import xarray as xr
 from werkzeug.exceptions import BadRequestKeyError
@@ -45,14 +45,14 @@ def generate_charts(var, lat, lon, month='ann'):
     if bccaq_location_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K':
         bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
 
-    chart_series = {'observations': convert_dataset_to_list(anusplin_location_slice)}
+    chart_series = {'observations': convert_time_series_dataset_to_list(anusplin_location_slice)}
 
     # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
     bccaq_location_slice_historical = bccaq_location_slice.where(
         bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
-    chart_series['modeled_historical_median'] = convert_dataset_to_list(
+    chart_series['modeled_historical_median'] = convert_time_series_dataset_to_list(
         bccaq_location_slice_historical[f'rcp26_{var}_p50'])
-    chart_series['modeled_historical_range'] = convert_dataset_to_list(
+    chart_series['modeled_historical_range'] = convert_time_series_dataset_to_list(
         xr.merge([bccaq_location_slice_historical[f'rcp26_{var}_p10'],
                   bccaq_location_slice_historical[f'rcp26_{var}_p90']]))
     # we return values in historical for all models after HISTORICAL_DATE_LIMIT
@@ -60,8 +60,8 @@ def generate_charts(var, lat, lon, month='ann'):
         bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
 
     for model in app.config['MODELS']:
-        chart_series[model + '_median'] = convert_dataset_to_list(bccaq_location_slice[f'{model}_{var}_p50'])
-        chart_series[model + '_range'] = convert_dataset_to_list(
+        chart_series[model + '_median'] = convert_time_series_dataset_to_list(bccaq_location_slice[f'{model}_{var}_p50'])
+        chart_series[model + '_range'] = convert_time_series_dataset_to_list(
             xr.merge([bccaq_location_slice[f'{model}_{var}_p10'],
                       bccaq_location_slice[f'{model}_{var}_p90']]))
 
@@ -75,9 +75,9 @@ def generate_charts(var, lat, lon, month='ann'):
         [i for i in delta_30y_dataset.coords if i != 'time']).dropna('time')
 
     for model in app.config['MODELS']:
-        chart_series[f"delta7100_{model}_median"] = convert_dataset_to_dict(
+        chart_series[f"delta7100_{model}_median"] = convert_time_series_dataset_to_dict(
             delta_30y_slice[f'{model}_{var}_delta7100_p50'])
-        chart_series[f"delta7100_{model}_range"] = convert_dataset_to_dict(
+        chart_series[f"delta7100_{model}_range"] = convert_time_series_dataset_to_dict(
             xr.merge([delta_30y_slice[f'{model}_{var}_delta7100_p10'],
                       delta_30y_slice[f'{model}_{var}_delta7100_p90']]))
 
@@ -85,9 +85,9 @@ def generate_charts(var, lat, lon, month='ann'):
         delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
 
     for model in app.config['MODELS']:
-        chart_series[f"30y_{model}_median"] = convert_dataset_to_dict(delta_30y_slice[f'{model}_{var}_p50'])
-        chart_series[f"30y_{model}_range"] = convert_dataset_to_dict(xr.merge([delta_30y_slice[f'{model}_{var}_p10'],
-                                                                               delta_30y_slice[f'{model}_{var}_p90']]))
+        chart_series[f"30y_{model}_median"] = convert_time_series_dataset_to_dict(delta_30y_slice[f'{model}_{var}_p50'])
+        chart_series[f"30y_{model}_range"] = convert_time_series_dataset_to_dict(xr.merge([delta_30y_slice[f'{model}_{var}_p10'],
+                                                                                           delta_30y_slice[f'{model}_{var}_p90']]))
 
     bccaq_dataset.close()
     anusplin_dataset.close()
@@ -118,15 +118,15 @@ def generate_spei_charts(var, lati, loni, month):
     observed_location_slice = observed_location_slice.where(
         observed_location_slice.time >= np.datetime64(app.config['SPEI_DATE_LIMIT']), drop=True)
     chart_series = {}
-    chart_series['observations'] = convert_dataset_to_list(observed_location_slice)
+    chart_series['observations'] = convert_time_series_dataset_to_list(observed_location_slice)
 
     # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
     location_slice_historical = location_slice.where(
         location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
     location_slice_historical = location_slice_historical.where(
         location_slice.time >= np.datetime64(app.config['SPEI_DATE_LIMIT']), drop=True)
-    chart_series['modeled_historical_median'] = convert_dataset_to_list(location_slice_historical['rcp26_spei_p50'])
-    chart_series['modeled_historical_range'] = convert_dataset_to_list(
+    chart_series['modeled_historical_median'] = convert_time_series_dataset_to_list(location_slice_historical['rcp26_spei_p50'])
+    chart_series['modeled_historical_range'] = convert_time_series_dataset_to_list(
         xr.merge([location_slice_historical['rcp26_spei_p10'],
                   location_slice_historical['rcp26_spei_p90']]))
     # we return values in historical for all models after HISTORICAL_DATE_LIMIT
@@ -134,9 +134,9 @@ def generate_spei_charts(var, lati, loni, month):
         location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
 
     for model in app.config['MODELS']:
-        chart_series[model + '_median'] = convert_dataset_to_list(location_slice['{}_spei_p50'.format(model)])
-        chart_series[model + '_range'] = convert_dataset_to_list(xr.merge([location_slice['{}_spei_p10'.format(model)],
-                                                                           location_slice[
+        chart_series[model + '_median'] = convert_time_series_dataset_to_list(location_slice['{}_spei_p50'.format(model)])
+        chart_series[model + '_range'] = convert_time_series_dataset_to_list(xr.merge([location_slice['{}_spei_p10'.format(model)],
+                                                                                       location_slice[
                                                                                '{}_spei_p90'.format(model)]]))
     return chart_series
 
@@ -155,9 +155,9 @@ def generate_slr_charts(lati, loni):
     chart_series = {}
 
     for model in app.config['MODELS']:
-        chart_series[model + '_median'] = convert_dataset_to_list(location_slice['{}_slr_p50'.format(model)])
-        chart_series[model + '_range'] = convert_dataset_to_list(xr.merge([location_slice['{}_slr_p05'.format(model)],
-                                                                           location_slice['{}_slr_p95'.format(model)]]))
+        chart_series[model + '_median'] = convert_time_series_dataset_to_list(location_slice['{}_slr_p50'.format(model)])
+        chart_series[model + '_range'] = convert_time_series_dataset_to_list(xr.merge([location_slice['{}_slr_p05'.format(model)],
+                                                                                       location_slice['{}_slr_p95'.format(model)]]))
     chart_series['rcp85_enhanced'] = [[dataset_enhanced['time'].item() / 10 ** 6,
                                        round(enhanced_location_slice['enhanced_p50'].item(), 2)]]
 
@@ -215,14 +215,14 @@ def generate_regional_charts(partition, index, var, month='ann'):
 
     if bccaq_location_slice['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
         bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
-    chart_series = {'observations': convert_dataset_to_list(anusplin_location_slice)}
+    chart_series = {'observations': convert_time_series_dataset_to_list(anusplin_location_slice)}
 
     # we return the historical values for a single model before HISTORICAL_DATE_LIMIT
     bccaq_location_slice_historical = bccaq_location_slice.where(
         bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
-    chart_series['modeled_historical_median'] = convert_dataset_to_list(
+    chart_series['modeled_historical_median'] = convert_time_series_dataset_to_list(
         bccaq_location_slice_historical['rcp26_{}_p50'.format(var)])
-    chart_series['modeled_historical_range'] = convert_dataset_to_list(
+    chart_series['modeled_historical_range'] = convert_time_series_dataset_to_list(
         xr.merge([bccaq_location_slice_historical['rcp26_{}_p10'.format(var)],
                   bccaq_location_slice_historical['rcp26_{}_p90'.format(var)]]))
     # we return values in historical for all models after HISTORICAL_DATE_LIMIT
@@ -230,18 +230,18 @@ def generate_regional_charts(partition, index, var, month='ann'):
         bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
 
     for model in app.config['MODELS']:
-        chart_series[model + '_median'] = convert_dataset_to_list(
+        chart_series[model + '_median'] = convert_time_series_dataset_to_list(
             bccaq_location_slice['{model}_{var}_p50'.format(var=var, model=model)])
-        chart_series[model + '_range'] = convert_dataset_to_list(
+        chart_series[model + '_range'] = convert_time_series_dataset_to_list(
             xr.merge([bccaq_location_slice['{model}_{var}_p10'.format(var=var, model=model)],
                       bccaq_location_slice['{model}_{var}_p90'.format(var=var, model=model)]]))
 
     # collect necessary data for 30y and deltas
 
     for model in app.config['MODELS']:
-        chart_series[f"delta7100_{model}_median"] = convert_dataset_to_dict(
+        chart_series[f"delta7100_{model}_median"] = convert_time_series_dataset_to_dict(
             delta_30y_slice[f'{model}_{var}_delta7100_p50'])
-        chart_series[f"delta7100_{model}_range"] = convert_dataset_to_dict(
+        chart_series[f"delta7100_{model}_range"] = convert_time_series_dataset_to_dict(
             xr.merge([delta_30y_slice[f'{model}_{var}_delta7100_p10'],
                       delta_30y_slice[f'{model}_{var}_delta7100_p90']]))
 
@@ -249,9 +249,9 @@ def generate_regional_charts(partition, index, var, month='ann'):
         delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
 
     for model in app.config['MODELS']:
-        chart_series[f"30y_{model}_median"] = convert_dataset_to_dict(delta_30y_slice[f'{model}_{var}_p50'])
-        chart_series[f"30y_{model}_range"] = convert_dataset_to_dict(xr.merge([delta_30y_slice[f'{model}_{var}_p10'],
-                                                                               delta_30y_slice[f'{model}_{var}_p90']]))
+        chart_series[f"30y_{model}_median"] = convert_time_series_dataset_to_dict(delta_30y_slice[f'{model}_{var}_p50'])
+        chart_series[f"30y_{model}_range"] = convert_time_series_dataset_to_dict(xr.merge([delta_30y_slice[f'{model}_{var}_p10'],
+                                                                                           delta_30y_slice[f'{model}_{var}_p90']]))
     bccaq_dataset.close()
     anusplin_dataset.close()
     delta_30y_dataset.close()

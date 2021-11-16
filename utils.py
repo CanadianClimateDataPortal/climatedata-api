@@ -34,7 +34,7 @@ def open_dataset_by_path(path):
         raise FileNotFoundError(f"Dataset file not found: {path}")
 
 
-def convert_dataset_to_list(dataset):
+def convert_time_series_dataset_to_list(dataset):
     """
     Converts xarray dataset to a list.
     We assume that the coordinates are timestamps, which are converted to milliseconds since 1970-01-01 (integer)
@@ -43,7 +43,7 @@ def convert_dataset_to_list(dataset):
             dataset.to_dataframe().astype('float64').round(2).reset_index().values.tolist()]
 
 
-def convert_dataset_to_dict(dataset):
+def convert_time_series_dataset_to_dict(dataset):
     """
     Converts xarray dataset to a dict.
     We assume that the coordinates are timestamps, which are converted to milliseconds since 1970-01-01 (integer)
