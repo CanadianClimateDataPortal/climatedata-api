@@ -167,7 +167,7 @@ def download():
     return "Bad request", 400
 
 
-def _format_30y_slice(delta_30y_slice, var, decimals):
+def _format_30y_slice_to_csv(delta_30y_slice, var, decimals):
     """
         Returns a csv response object from a xarray slice
     """
@@ -178,9 +178,7 @@ def _format_30y_slice(delta_30y_slice, var, decimals):
     df = df.reindex(columns=["rcp{1}_{var}_{0}p{2}".format(*a, var=var) for a in
                              itertools.product(['', 'delta7100_'], [26, 45, 85], [10, 50, 90])])
 
-    csv_data = df.to_csv(float_format=f"%.{decimals}f")
-
-    return Response(csv_data, mimetype='text/csv', headers={"Content-disposition": f"attachment; filename={var}.csv"})
+    return df.to_csv(float_format=f"%.{decimals}f")
 
 
 def download_30y(var, lat, lon, month):
@@ -205,9 +203,9 @@ def download_30y(var, lat, lon, month):
                                                                 msys=msys,
                                                                 month=month_path))
     delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
-    response = _format_30y_slice(delta_30y_slice, var, decimals)
+    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals)
     delta_30y_dataset.close()
-    return response
+    return Response(csv_data, mimetype='text/csv', headers={"Content-disposition": f"attachment; filename={var}.csv"})
 
 
 def download_regional_30y(partition, index, var, month):
@@ -239,9 +237,9 @@ def download_regional_30y(partition, index, var, month):
         delta_30y_slice = delta_30y_slice.sel(
             time=(delta_30y_slice.time.dt.month == monthnumber))
 
-    response = _format_30y_slice(delta_30y_slice, var, decimals)
+    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals)
     delta_30y_dataset.close()
-    return response
+    return Response(csv_data, mimetype='text/csv', headers={"Content-disposition": f"attachment; filename={var}.csv"})
 
 
 def download_ahccd():
