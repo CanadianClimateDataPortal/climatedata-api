@@ -71,7 +71,8 @@ def generate_charts(var, lat, lon, month='ann'):
                                                                 var=var,
                                                                 msys=msys,
                                                                 month=monthpath))
-    delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
+    delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').drop(
+        [i for i in delta_30y_dataset.coords if i != 'time']).dropna('time')
 
     for model in app.config['MODELS']:
         chart_series[f"delta7100_{model}_median"] = convert_dataset_to_dict(
