@@ -8,12 +8,13 @@ TEMPDIR="/tmp"
 
 NETCDF_BCCAQV2_FILENAME_FORMATS=["{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{msys}{month}.nc",
                          "{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1950-2100_{var}_{msys}{month}.nc"]
-
+NETCDF_BCCAQV2_30Y_FILENAME_FORMAT = "{root}/{var}/{msys}/30yAvg_BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{msys}{month}.nc"
 NETCDF_ANUSPLINV1_FILENAME_FORMATS=["{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}.nc"]
 NETCDF_SPEI_FILENAME_FORMATS="{root}/{var}/SPEI_ensemble_percentiles_allrcps_MON_1900_2100_{var}.nc"
 NETCDF_SPEI_OBSERVED_FILENAME_FORMATS="{root}/{var}/CCRC_CANGRD_MON_1900_2014_spei_bc_ref_period_195001_200512_timev_{var}.nc"
 
 NETCDF_BCCAQV2_YEARLY_FOLDER= "./netcdfs"
+NETCDF_BCCAQV2_30Y_FOLDER = "./netcdfs/30yGraph"
 NETCDF_ANUSPLINV1_YEARLY_FOLDER = "./netcdfs"
 NETCDF_LOCATIONS_FOLDER="./netcdfs/locations"
 NETCDF_SPEI_FOLDER="./netcdfs/SPEI/"
@@ -142,18 +143,27 @@ MONTH_NUMBER_LUT = {
     'fall': 9
 }
 
-PARTITIONS_FOLDER = {'census': {'ANUSPLIN': './netcdfs',
-                                   'BCCAQ': './netcdfs'}}
+PARTITIONS_FOLDER = {
+    'census': {'ANUSPLIN': './netcdfs',
+               'BCCAQ': './netcdfs',
+               '30yGraph': './netcdfs'}}
 
-PARTITIONS_PATH_FORMATS = {'census': {'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
-                                         'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
-                                         'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
-                           'health':    {'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
-                                         'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
-                                         'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
-                           'watershed': {'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
-                                         'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
-                                         'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"}}
+PARTITIONS_PATH_FORMATS = {
+    'census': {
+        'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
+        'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
+        '30yGraph': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
+        'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
+    'health': {
+        'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
+        '30yGraph': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
+        'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
+        'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
+    'watershed': {
+        'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
+        '30yGraph': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
+        'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
+        'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"}}
 
 AHCCD_FOLDER = './netcdfs/ahccd'
 AHCCD_ORDER = ['station_name', 'lon', 'lat', 'elev', 'prov',

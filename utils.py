@@ -31,13 +31,22 @@ def open_dataset_by_path(path):
         dataset['time'] = xr.decode_cf(dataset).time
         return dataset
     except FileNotFoundError:
-        raise FileNotFoundError("Dataset not found")
+        raise FileNotFoundError(f"Dataset file not found: {path}")
 
 
-def convert_dataarray_to_list(dataset):
+def convert_time_series_dataset_to_list(dataset):
     """
     Converts xarray dataset to a list.
     We assume that the coordinates are timestamps, which are converted to milliseconds since 1970-01-01 (integer)
     """
     return [[int(a[0].timestamp() * 1000)] + a[1:] for a in
             dataset.to_dataframe().astype('float64').round(2).reset_index().values.tolist()]
+
+
+def convert_time_series_dataset_to_dict(dataset):
+    """
+    Converts xarray dataset to a dict.
+    We assume that the coordinates are timestamps, which are converted to milliseconds since 1970-01-01 (integer)
+    """
+    return {int(a[0].timestamp() * 1000): a[1:] for a in
+            dataset.to_dataframe().astype('float64').round(2).reset_index().values.tolist()}
