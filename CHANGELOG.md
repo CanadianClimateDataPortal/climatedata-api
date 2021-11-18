@@ -1,3 +1,6 @@
+2021-11-18.01
+  * Added decimals parameter to all relevant API calls
+
 2021-11-16.01
   * Added delta features
 

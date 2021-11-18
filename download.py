@@ -33,8 +33,8 @@ def output_json(df, var, freq, decimals, period=''):
         :param df: the dataframe
         :param var: name of the variable to export
         :param freq: the frequency sampling (MS|YS)
-        :param period: the period if the frequency sampling requires one
         :param decimals: the number of decimals to output format
+        :param period: the period if the frequency sampling requires one
         :return: the dataframe as a JSON string
     """
     if freq == 'YS':
