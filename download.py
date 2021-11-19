@@ -27,12 +27,13 @@ def get_frame(dataset, point, adjust, limit=None):
     return ds.to_dataframe()
 
 
-def output_json(df, var, freq, period=''):
+def output_json(df, var, freq, decimals, period=''):
     """
         Outputs a dataframe to JSON for use with the portal
         :param df: the dataframe
         :param var: name of the variable to export
         :param freq: the frequency sampling (MS|YS)
+        :param decimals: the number of decimals to output format
         :param period: the period if the frequency sampling requires one
         :return: the dataframe as a JSON string
     """
@@ -61,7 +62,7 @@ def output_json(df, var, freq, period=''):
        {monthstr}
        "latitude": {df.lat[0]:.2f},
        "longitude": {df.lon[0]:.2f} }},
-       {{"data": {df.drop(columns=['lon', 'lat'], axis=1).to_json(orient='index', date_format='iso', date_unit='s', double_precision=2)} }}]
+       {{"data": {df.drop(columns=['lon', 'lat'], axis=1).to_json(orient='index', date_format='iso', date_unit='s', double_precision=decimals)} }}]
     """)
 
 
@@ -72,6 +73,7 @@ def download():
         { 'var' : 'tx_max',
           'month' : 'jan',
           'format' : 'json',
+          'decimals' : 3,
           'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }
 
@@ -107,6 +109,9 @@ def download():
         month = args['month']
         format = args['format']
         points = args['points']
+        decimals = int(args.get('decimals', 2))
+        if decimals < 0:
+            return "Bad request: invalid number of decimals", 400
         monthpath, freq = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
@@ -158,11 +163,11 @@ def download():
 
     if format == 'csv':
         dfs = [j for sub in dfs for j in sub]  # flattens sublists
-        return Response(pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).to_csv(float_format='%.2f'),
+        return Response(pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).to_csv(float_format=f'%.{decimals}f'),
                         mimetype='text/csv')
     if format == 'json':
         return Response("[" + ",".join(
-            map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, month), dfs)) + "]",
+            map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month), dfs)) + "]",
                         mimetype='application/json')
     return "Bad request", 400
 
@@ -184,13 +189,15 @@ def _format_30y_slice_to_csv(delta_30y_slice, var, decimals):
 def download_30y(var, lat, lon, month):
     """
         Download the 30y and delta values for a single grid cell
-        ex: curl 'http://localhost:5000/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann'
+        ex: curl 'http://localhost:5000/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann?decimals=2'
     :return: csv string
     """
     try:
         lati = float(lat)
         loni = float(lon)
-        decimals = request.args.get('decimals', 2)
+        decimals = int(request.args.get('decimals', 2))
+        if decimals < 0:
+            return "Bad request: invalid number of decimals", 400
         month_path, msys = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
@@ -211,14 +218,18 @@ def download_30y(var, lat, lon, month):
 def download_regional_30y(partition, index, var, month):
     """
         Download the 30y and delta values for a single grid cell
-        ex: curl 'http://localhost:5000/download-regional-30y/census/1/tx_max/ann'
+        ex: curl 'http://localhost:5000/download-regional-30y/census/1/tx_max/ann?decimals=3'
     :return: csv string
     """
     try:
         indexi = int(index)
-        decimals = request.args.get('decimals', 2)
+
         msys = app.config['MONTH_LUT'][month][1]
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
+        decimals = int(request.args.get('decimals', 2))
+        if decimals < 0:
+            return "Bad request: invalid number of decimals", 400
+
         if var not in app.config['VARIABLES']:
             raise ValueError
         delta30y_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['30yGraph'].format(
