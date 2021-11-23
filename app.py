@@ -3,7 +3,7 @@ import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 import requests
 from charts import generate_charts, generate_regional_charts
-from map import get_choro_values
+from map import get_choro_values, get_grid_hover_values, get_regional_hover_values
 from download import download, download_ahccd, download_30y, download_regional_30y
 from siteinfo import get_location_values_allyears
 
@@ -32,6 +32,8 @@ app.add_url_rule('/generate-regional-charts/<partition>/<index>/<var>', view_fun
 # map routes
 app.add_url_rule('/get-choro-values/<partition>/<var>/<model>/<month>/', view_func=get_choro_values)
 app.add_url_rule('/get-choro-values/<partition>/<var>/<model>', view_func=get_choro_values)
+app.add_url_rule('/get-grid-hover-values/<lat>/<lon>/<var>/<model>/<month>', view_func=get_grid_hover_values)
+app.add_url_rule('/get-regional-hover-values/<partition>/<index>/<var>/<model>/<month>', view_func=get_regional_hover_values)
 
 # download routes
 app.add_url_rule('/download', view_func=download, methods=['POST'])
