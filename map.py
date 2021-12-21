@@ -37,6 +37,24 @@ def get_choro_values(partition, var, model, month='ann'):
                     mimetype='application/json')
 
 
+def _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals):
+    """
+
+    :param delta_30y_slice: xarray dataset slice to convert
+    :param var: climate variable name
+    :param delta: "_delta7100" if delta is requested
+    :param decimals: number of decimals
+    :return: a dictionary of dictionaries containing all requested values
+    """
+    if delta_30y_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K' and not delta:
+        delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
+
+    values = {}
+    for model in app.config['MODELS']:
+        values[model] = {p: round(delta_30y_slice[f"{model}_{var}{delta}_{p}"].item(), decimals) for p in ['p10', 'p50', 'p90']}
+    return values
+
+
 def get_delta_30y_gridded_values(lat, lon, var, month):
     """
     Fetch specific data within the delta30y dataset
@@ -72,13 +90,7 @@ def get_delta_30y_gridded_values(lat, lon, var, month):
                                                                 msys=msys,
                                                                 month=monthpath))
     delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=f"{period}-{monthnumber}-01")
-    if delta_30y_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K' and not delta:
-        delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
-
-    values = {}
-    for model in app.config['MODELS']:
-        values[model] = {p: round(delta_30y_slice[f"{model}_{var}{delta}_{p}"].item(), decimals) for p in ['p10', 'p50', 'p90']}
-    return values
+    return _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals)
 
 
 def get_delta_30y_regional_values(partition, index, var, month):
@@ -115,10 +127,5 @@ def get_delta_30y_regional_values(partition, index, var, month):
     delta = "_delta7100" if delta7100 == "true" else ""
     delta_30y_dataset = open_dataset_by_path(delta30y_path)
     delta_30y_slice = delta_30y_dataset.sel(region=indexi).sel(time=f"{period}-{monthnumber}-01")
-    if delta_30y_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K' and not delta:
-        delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
 
-    values = {}
-    for model in app.config['MODELS']:
-        values[model] = {p: round(delta_30y_slice[f"{model}_{var}{delta}_{p}"].item(), decimals) for p in ['p10', 'p50', 'p90']}
-    return values
+    return _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals)
