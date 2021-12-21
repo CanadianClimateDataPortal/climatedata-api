@@ -37,15 +37,14 @@ def get_choro_values(partition, var, model, month='ann'):
                     mimetype='application/json')
 
 
-def get_delta_30y_gridded_values(lat, lon, var, model, month):
+def get_delta_30y_gridded_values(lat, lon, var, month):
     """
     Fetch specific data within the delta30y dataset
-    ex:  curl 'http://localhost:5000/get-delta-30y-gridded-values/60.31062731740045/-100.06347656250001/tx_max/rcp85/ann?period=1951&decimals=2'
-        curl 'http://localhost:5000/get-delta-30y-gridded-values/60.31062731740045/-100.06347656250001/tx_max/rcp85/ann?period=1951&decimals=2&delta7100=true'
+    ex:  curl 'http://localhost:5000/get-delta-30y-gridded-values/60.31062731740045/-100.06347656250001/tx_max/ann?period=1951&decimals=2'
+        curl 'http://localhost:5000/get-delta-30y-gridded-values/60.31062731740045/-100.06347656250001/tx_max/ann?period=1951&decimals=2&delta7100=true'
     :param lat: latitude (float as string)
     :param lon: longitude (float as string)
     :param var: climate variable name
-    :param model: [rcp26,rcp45,rcp85]
     :param month: [ann,jan,feb,...]
     :return: dictionary for p10, p50 and p90 of requested values
     """
@@ -75,18 +74,21 @@ def get_delta_30y_gridded_values(lat, lon, var, model, month):
     delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=f"{period}-{monthnumber}-01")
     if delta_30y_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K' and not delta:
         delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
-    return {p: round(delta_30y_slice[f"{model}_{var}{delta}_{p}"].item(), decimals) for p in ['p10', 'p50', 'p90']}
+
+    values = {}
+    for model in app.config['MODELS']:
+        values[model] = {p: round(delta_30y_slice[f"{model}_{var}{delta}_{p}"].item(), decimals) for p in ['p10', 'p50', 'p90']}
+    return values
 
 
-def get_delta_30y_regional_values(partition, index, var, model, month):
+def get_delta_30y_regional_values(partition, index, var, month):
     """
     Fetch specific data within the delta30y partitionned dataset (health/census/...)
-        ex: curl 'http://localhost:5000/get-delta-30y-regional-values/census/4510/tx_max/rcp85/ann?period=1951'
-            curl 'http://localhost:5000/get-delta-30y-regional-values/census/4510/tx_max/rcp85/ann?period=1951&delta7100=true'
+        ex: curl 'http://localhost:5000/get-delta-30y-regional-values/census/4510/tx_max/ann?period=1951'
+            curl 'http://localhost:5000/get-delta-30y-regional-values/census/4510/tx_max/ann?period=1951&delta7100=true'
     :param partition: partition name
     :param index: ID of the region (int as string)
     :param var: climate variable name
-    :param model: [rcp26,rcp45,rcp85]
     :param month: [ann,jan,feb,...]
     :return: dictionary for p10, p50 and p90 of requested values
     """
@@ -115,4 +117,8 @@ def get_delta_30y_regional_values(partition, index, var, model, month):
     delta_30y_slice = delta_30y_dataset.sel(region=indexi).sel(time=f"{period}-{monthnumber}-01")
     if delta_30y_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K' and not delta:
         delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
-    return {p: round(delta_30y_slice[f"{model}_{var}{delta}_{p}"].item(), decimals) for p in ['p10', 'p50', 'p90']}
+
+    values = {}
+    for model in app.config['MODELS']:
+        values[model] = {p: round(delta_30y_slice[f"{model}_{var}{delta}_{p}"].item(), decimals) for p in ['p10', 'p50', 'p90']}
+    return values

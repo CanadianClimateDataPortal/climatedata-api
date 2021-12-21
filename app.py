@@ -32,8 +32,8 @@ app.add_url_rule('/generate-regional-charts/<partition>/<index>/<var>', view_fun
 # map routes
 app.add_url_rule('/get-choro-values/<partition>/<var>/<model>/<month>/', view_func=get_choro_values)
 app.add_url_rule('/get-choro-values/<partition>/<var>/<model>', view_func=get_choro_values)
-app.add_url_rule('/get-delta-30y-gridded-values/<lat>/<lon>/<var>/<model>/<month>', view_func=get_delta_30y_gridded_values)
-app.add_url_rule('/get-delta-30y-regional-values/<partition>/<index>/<var>/<model>/<month>', view_func=get_delta_30y_regional_values)
+app.add_url_rule('/get-delta-30y-gridded-values/<lat>/<lon>/<var>/<month>', view_func=get_delta_30y_gridded_values)
+app.add_url_rule('/get-delta-30y-regional-values/<partition>/<index>/<var>/<month>', view_func=get_delta_30y_regional_values)
 
 # download routes
 app.add_url_rule('/download', view_func=download, methods=['POST'])
