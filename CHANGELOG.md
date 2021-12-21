@@ -1,3 +1,6 @@
+2021-12-21.01
+  * Added get-delta-30y-regional-values + get-delta-30y-gridded-values required for grid hovering
+
 2021-11-18.01
   * Added decimals parameter to all relevant API calls
 
