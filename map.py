@@ -4,7 +4,7 @@ import json
 from werkzeug.exceptions import BadRequestKeyError
 
 
-def get_choro_values(partition, var, model, month='ann'):
+def get_choro_values(partition, var, scenario, month='ann'):
     """
         Get regional data for all regions, single date
         ex: curl 'http://localhost:5000/get-choro-values/census/tx_max/rcp85/ann/?period=1971'
@@ -12,7 +12,7 @@ def get_choro_values(partition, var, model, month='ann'):
     try:
         msys = app.config['MONTH_LUT'][month][1]
         month_number = app.config['MONTH_NUMBER_LUT'][month]
-        if model not in app.config['MODELS']:
+        if scenario not in app.config['SCENARIOS']:
             raise ValueError
         if var not in app.config['VARIABLES']:
             raise ValueError
@@ -28,16 +28,16 @@ def get_choro_values(partition, var, model, month='ann'):
     delta = "_delta7100" if delta7100 == "true" else ""
 
     bccaq_dataset = open_dataset_by_path(dataset_path)
-    bccaq_time_slice = bccaq_dataset.sel(time="{}-{}-01".format(period, month_number))
+    bccaq_time_slice = bccaq_dataset.sel(time=f"{period}-{month_number}-01")
 
-    return Response(json.dumps(bccaq_time_slice[f"{model}_{var}{delta}_p50"]
+    return Response(json.dumps(bccaq_time_slice[f"{scenario}_{var}{delta}_p50"]
                                .drop([i for i in bccaq_time_slice.coords if i != 'region']).to_dataframe().astype(
         'float64')
                                .round(2).fillna(0).transpose().values.tolist()[0]),
                     mimetype='application/json')
 
 
-def _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals):
+def _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals, percentiles=['p10', 'p50', 'p90']):
     """
 
     :param delta_30y_slice: xarray dataset slice to convert
@@ -50,8 +50,9 @@ def _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals):
         delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
 
     values = {}
-    for model in app.config['MODELS']:
-        values[model] = {p: round(delta_30y_slice[f"{model}_{var}{delta}_{p}"].item(), decimals) for p in ['p10', 'p50', 'p90']}
+    for scenario in app.config['SCENARIOS']:
+        values[scenario] = {p: round(delta_30y_slice[f"{scenario}_{var}{delta}_{p}"].item(), decimals) for p in
+                            percentiles}
     return values
 
 
@@ -91,6 +92,31 @@ def get_delta_30y_gridded_values(lat, lon, var, month):
                                                                 month=monthpath))
     delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=f"{period}-{monthnumber}-01")
     return _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals)
+
+
+def get_slr_gridded_values(lat, lon):
+    """
+    Returns all values from sea-level change dataset for a requested location
+    ex: curl http://localhost:5000/get-slr-gridded-values/61.04/-61.11?period=2050
+    :param lat: latitude (float as string)
+    :param lon: longitude (float as string)
+    """
+    try:
+        lati = float(lat)
+        loni = float(lon)
+        period = int(request.args['period'])
+    except (ValueError, BadRequestKeyError, KeyError):
+        return "Bad request", 400
+
+    dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'])
+    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=f"{period}-01-01")
+
+    dataset_enhanced = open_dataset_by_path(app.config['NETCDF_SLR_ENHANCED_PATH'])
+    enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest')
+
+    slr_values = _convert_delta30_values_to_dict(location_slice, 'slr', "", 0, percentiles=['p05', 'p50', 'p95'])
+    slr_values['rcp85_enhanced'] = round(enhanced_location_slice['enhanced_p50'].item(), 0)
+    return slr_values
 
 
 def get_delta_30y_regional_values(partition, index, var, month):

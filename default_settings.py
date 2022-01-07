@@ -21,7 +21,7 @@ NETCDF_SPEI_FOLDER="./netcdfs/SPEI/"
 NETCDF_SLR_PATH="./netcdfs/sealevel/Decadal_CMIP5_ensemble-percentiles_allrcps_2006-2100_slr_YS.nc"
 NETCDF_SLR_ENHANCED_PATH="./netcdfs/sealevel/Decadal_0.1degree_CMIP5_ensemble-percentiles_enhancedscenario_2100_slc_YS_geoserver.nc"
 
-MODELS=['rcp26', 'rcp45', 'rcp85']
+SCENARIOS=['rcp26', 'rcp45', 'rcp85']
 
 HISTORICAL_DATE_LIMIT_BEFORE = '2005-12-31'
 HISTORICAL_DATE_LIMIT_AFTER = '2005-01-01'
