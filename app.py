@@ -3,7 +3,7 @@ import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 import requests
 from charts import generate_charts, generate_regional_charts
-from map import get_choro_values, get_delta_30y_gridded_values, get_delta_30y_regional_values
+from map import get_choro_values, get_delta_30y_gridded_values, get_delta_30y_regional_values, get_slr_gridded_values
 from download import download, download_ahccd, download_30y, download_regional_30y
 from siteinfo import get_location_values_allyears
 
@@ -30,9 +30,10 @@ app.add_url_rule('/generate-regional-charts/<partition>/<index>/<var>/<month>', 
 app.add_url_rule('/generate-regional-charts/<partition>/<index>/<var>', view_func=generate_regional_charts)
 
 # map routes
-app.add_url_rule('/get-choro-values/<partition>/<var>/<model>/<month>/', view_func=get_choro_values)
-app.add_url_rule('/get-choro-values/<partition>/<var>/<model>', view_func=get_choro_values)
+app.add_url_rule('/get-choro-values/<partition>/<var>/<scenario>/<month>/', view_func=get_choro_values)
+app.add_url_rule('/get-choro-values/<partition>/<var>/<scenario>', view_func=get_choro_values)
 app.add_url_rule('/get-delta-30y-gridded-values/<lat>/<lon>/<var>/<month>', view_func=get_delta_30y_gridded_values)
+app.add_url_rule('/get-slr-gridded-values/<lat>/<lon>', view_func=get_slr_gridded_values)
 app.add_url_rule('/get-delta-30y-regional-values/<partition>/<index>/<var>/<month>', view_func=get_delta_30y_regional_values)
 
 # download routes
@@ -63,5 +64,5 @@ def check_status():
             if app.config['DEBUG']:
                 raise ex
             else:
-                return "Test {} failed.<br> Message: {}".format(check['name'], ex), 500
+                return f"Test {check['name']} failed.<br> Message: {ex}", 500
     return "All checks successful", 200
