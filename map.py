@@ -115,7 +115,7 @@ def get_slr_gridded_values(lat, lon):
     enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest')
 
     slr_values = _convert_delta30_values_to_dict(location_slice, 'slr', "", 0, percentiles=['p05', 'p50', 'p95'])
-    slr_values['rcp85_enhanced'] = round(enhanced_location_slice['enhanced_p50'].item(), 0)
+    slr_values['rcp85plus65'] = {'p50': round(enhanced_location_slice['enhanced_p50'].item(), 0)}
     return slr_values
 
 
