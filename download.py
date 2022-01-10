@@ -148,7 +148,7 @@ def download():
             datasets = [open_dataset(var, freq, monthpath, app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
                                      app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])]
 
-    if var not in app.config['SPEI_VARIABLES'] and datasets[0]['rcp26_{}_p50'.format(var)].attrs.get('units') == 'K':
+    if var not in app.config['SPEI_VARIABLES'] and datasets[0][f'rcp26_{var}_p50'].attrs.get('units') == 'K':
         adjust = app.config['KELVIN_TO_C']
     else:
         adjust = 0
