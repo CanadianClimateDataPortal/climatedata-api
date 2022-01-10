@@ -1,5 +1,6 @@
-2022-01-07.01
+2022-01-10.01
   * Added get-slr-gridded-values
+  * Renamed models to scenarios
 
 2021-12-21.01
   * Added get-delta-30y-regional-values + get-delta-30y-gridded-values required for grid hovering
