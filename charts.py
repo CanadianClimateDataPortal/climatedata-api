@@ -176,7 +176,7 @@ def generate_slr_charts(lati, loni):
             xr.merge([location_slice[f'{scenario}_slr_p05'],
                       location_slice[f'{scenario}_slr_p95']]), decimals=0)
     chart_series['rcp85_enhanced'] = [[dataset_enhanced['time'].item() / 10 ** 6,
-                                       int(enhanced_location_slice['enhanced_p50'].item())]]
+                                       round(enhanced_location_slice['enhanced_p50'].item(),0)]]
 
     return chart_series
 
