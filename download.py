@@ -10,21 +10,21 @@ from werkzeug.exceptions import BadRequestKeyError
 import itertools
 
 
-def get_frame(dataset, point, adjust, limit=None):
+def get_point(dataset, point, adjust, limit=None):
     """
-        Returns a dataframe for a specific coordinate (lat,lon)
-        :param dataset: the xarray dataset to convert
+        Returns a sub-dataset for a specific coordinate (lat,lon)
+        :param dataset: the xarray dataset to select from
         :param point: (1x2 array): coordinates to select [lat,lon]
         :param adjust: constant to add to the whole dataset after the select but before conversion (ex: for Kelvin to °C)
         :param limit: lower time limit of the data to keep
-        :return: a sliced from the dataset as a dataframe
+        :return: a slice from the dataset
     """
     ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
     if adjust:
         ds = ds + adjust
     if limit:
         ds = ds.where(ds.time >= np.datetime64(limit), drop=True)
-    return ds.to_dataframe()
+    return ds
 
 
 def output_json(df, var, freq, decimals, period=''):
@@ -66,6 +66,22 @@ def output_json(df, var, freq, decimals, period=''):
     """)
 
 
+def output_netcdf(ds, encoding, format):
+    """
+    Export an in-memory dataset to a netcdf file, returns a file handle to an unlinked
+    temporary file
+    :param ds: an xarray dataset
+    :param encoding: encoding dictionary used by to_netcdf
+    :param format: netcdf format to use (NETCDF4, NETCDF4_CLASSIC)
+    :return: A file handle to the exported netcdf
+    """
+    filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))
+    ds.to_netcdf(filename, encoding=encoding, format=format)
+    f = open(filename, "rb")
+    os.unlink(filename)
+    return f
+
+
 def download():
     """
         Performs a download of annual/monthly dataset.
@@ -77,10 +93,17 @@ def download():
           'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }
 
-        CURL format:
+        JSON format:
         curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
           "month" : "jan",
           "format" : "json",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+        Netcdf Format
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "netcdf",
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
 
@@ -100,7 +123,7 @@ def download():
 
         var: variable to fetch
         month: frequency-sampling to fetch
-        format: csv or json
+        format: csv, json or netcdf
         points: array of [lat,lon] coordinates
     """
     args = request.get_json()
@@ -153,8 +176,20 @@ def download():
     else:
         adjust = 0
 
-    dfs = [[get_frame(dataset, p, adjust, limit) for dataset in datasets] for p in points]
+    points_datasets = [[get_point(dataset, p, adjust, limit) for dataset in datasets] for p in points]
 
+    if format == 'netcdf':
+        combined_ds = xr.combine_nested(points_datasets, ['region', 'time'], combine_attrs='override').dropna('region', how='all')
+
+        encodings = {}
+        for v in combined_ds.data_vars:
+            if combined_ds[v].attrs.get('units') == 'K':
+                combined_ds[v].attrs['units'] = 'degC'
+            encodings[v] = {"zlib":True}
+        f = output_netcdf(combined_ds, encodings, 'NETCDF4')
+        return send_file(f, mimetype='application/x-netcdf4')
+
+    dfs = [[j.to_dataframe() for j in i] for i in points_datasets]
     # remove empty dataframes
     dfs = [[df for df in dflist if not df.empty] for dflist in dfs]
     dfs = [dflist for dflist in dfs if not len(dflist) == 0]
@@ -330,10 +365,7 @@ def download_ahccd():
 
     ds = xr.merge(allds, compat="override")
     if format == 'netcdf':
-        filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))
-        ds.to_netcdf(filename, encoding=encoding, format='NETCDF4_CLASSIC')
-        f = open(filename, "rb")
-        os.unlink(filename)
+        f = output_netcdf(ds, encoding, 'NETCDF4_CLASSIC')
         return send_file(f, mimetype='application/x-netcdf4', as_attachment=True, attachment_filename='ahccd.nc')
 
     if format == 'csv':

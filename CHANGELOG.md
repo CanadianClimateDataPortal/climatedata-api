@@ -1,3 +1,6 @@
+2022-01-19.01
+  * Added netcdf format to download
+
 2022-01-10.01
   * Added get-slr-gridded-values
   * Renamed models to scenarios

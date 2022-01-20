@@ -1,7 +1,7 @@
 wheel
 flask
 pandas
-xarray
+xarray>=0.16.0
 sentry-sdk[flask]
 netCDF4
 mapbox_vector_tile
