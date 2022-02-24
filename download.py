@@ -288,7 +288,7 @@ def download_ahccd():
             stations = args['stations'].split(',')
 
         format = args['format']
-        variable_type_filter = args.get('variable_type_filter', "")
+        variable_type_filter = args.get('variable_type_filter', "").upper()
         if len(stations) == 0:
             raise ValueError
     except (ValueError, BadRequestKeyError, KeyError, TypeError):
@@ -324,6 +324,9 @@ def download_ahccd():
 
     if variable_type_filter:
         variables = [v for v in variables if v['type'] == variable_type_filter]
+
+    if not variables:
+        return "Invalid variable_type_filter", 400
 
     allds = []
     encoding = {}
