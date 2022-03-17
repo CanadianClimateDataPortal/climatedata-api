@@ -1,3 +1,6 @@
+2022-03-17.01
+  * Added bounding box support to /download route
+
 2022-02-24.01
   * Added variable\_type\_filter parameter to download-ahccd to return only temperature or precipitations variable
 
