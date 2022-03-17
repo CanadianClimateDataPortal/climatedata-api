@@ -6,3 +6,4 @@ sentry-sdk[flask]
 netCDF4
 mapbox_vector_tile
 requests
+clisops

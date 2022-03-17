@@ -1,3 +1,6 @@
+2022-03-17.01
+  * Added bounding box support to /download route
+
 2022-01-19.01
   * Added netcdf format to download
 
