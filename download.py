@@ -358,6 +358,13 @@ def download_ahccd():
     ds_range = ds.dropna('time', how='all', subset=[v['name'] for v in variables if v['name'] in ds])
     ds = ds.sel(time=slice(ds_range.time[0], ds_range.time[-1]))
 
+    for v in ds.data_vars:
+        ds[v].encoding["coordinates"] = None
+
+    # we assign coordinates to make sure that Finch doesn't drop this data
+    if variable_type_filter:
+        ds = ds.assign_coords(lat=ds.lat, lon=ds.lon, station_name=ds.station_name, prov=ds.prov)
+
     if format == 'netcdf':
         filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))
         ds.to_netcdf(filename, encoding=encoding, format='NETCDF4_CLASSIC')
