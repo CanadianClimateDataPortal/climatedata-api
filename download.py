@@ -217,7 +217,7 @@ def download():
     if bbox:
         subsetted_datasets = [get_subset(dataset, bbox, adjust, limit) for dataset in datasets]
 
-    if format == 'nc':
+    if format == 'netcdf':
         if points:
             combined_ds = xr.combine_nested(points_datasets, ['region', 'time'], combine_attrs='override').dropna(
                 'region', how='all')
