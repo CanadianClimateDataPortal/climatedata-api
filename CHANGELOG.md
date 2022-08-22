@@ -3,6 +3,9 @@
   * Added netcdf format to download
   * Python >= 3.9 is now required
 
+2022-02-24.01
+  * Added variable\_type\_filter parameter to download-ahccd to return only temperature or precipitations variable
+
 2022-01-10.01
   * Added get-slr-gridded-values
   * Renamed models to scenarios

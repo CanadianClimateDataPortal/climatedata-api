@@ -344,6 +344,13 @@ def download_regional_30y(partition, index, var, month):
 def download_ahccd():
     """
         download one or multiple AHCCD station data
+        Required parameters (POST/GET):
+            format [string]: csv | netcdf
+            stations [array of strings]: list of stations
+
+        Optional parameters:
+            variable_type_filter [string]: "T" for Temperature, "P" for precipitations
+
 
         curl examples:
         # case where two stations are in both temperatures and precipitations
@@ -351,6 +358,8 @@ def download_ahccd():
             curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3081680","8400413"]}'
         GET:
             curl -s "http://localhost:5000/download-ahccd?format=csv&stations=3081680,8400413"
+        with filter:
+            curl -s "http://localhost:5000/download-ahccd?format=csv&stations=3081680,8400413&variable_type_filter=P"
         # case where the station is only in precipitations
         curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3034720"]}'
         # case where the station is only in temperature
@@ -367,6 +376,7 @@ def download_ahccd():
             stations = args['stations'].split(',')
 
         format = args['format']
+        variable_type_filter = args.get('variable_type_filter', "").upper()
         if len(stations) == 0:
             raise ValueError
     except (ValueError, BadRequestKeyError, KeyError, TypeError):
@@ -376,23 +386,35 @@ def download_ahccd():
     commondrops = ['fromyear', 'frommonth', 'toyear', 'tomonth', 'stnid']
     variables = [
         {'name': 'tas',
+         'type': 'T',
          'filename': 'ahccd_gen3_tas.nc',
          'drops': commondrops + ['no', 'pct_miss', 'joined', 'rcs']},
         {'name': 'tasmax',
+         'type': 'T',
          'filename': 'ahccd_gen3_tasmax.nc',
          'drops': commondrops + ['no', 'pct_miss', 'joined', 'rcs']},
         {'name': 'tasmin',
+         'type': 'T',
          'filename': 'ahccd_gen3_tasmin.nc',
          'drops': commondrops + ['no', 'pct_miss', 'joined', 'rcs']},
         {'name': 'pr',
+         'type': 'P',
          'filename': 'ahccd_gen2_pr.nc',
          'drops': commondrops + ['stns_joined']},
         {'name': 'prlp',
+         'type': 'P',
          'filename': 'ahccd_gen2_prlp.nc',
          'drops': commondrops + ['stns_joined']},
         {'name': 'prsn',
+         'type': 'P',
          'filename': 'ahccd_gen2_prsn.nc',
          'drops': commondrops + ['stns_joined']}]
+
+    if variable_type_filter:
+        variables = [v for v in variables if v['type'] == variable_type_filter]
+
+    if not variables:
+        return "Invalid variable_type_filter", 400
 
     allds = []
     encoding = {}
@@ -410,13 +432,20 @@ def download_ahccd():
             encoding[var['name']] = {"zlib": True}
 
     # we copy missing attributes of stations not present in the tas dataset
-    if len(allds) == len(variables):
+    if len(allds) == len(variables) and not variable_type_filter:
         for s in stations:
             if s not in allds[0]['station']:
                 allds[0] = xr.merge([allds[0], allds[3].sel(station=[s]).drop(['pr', 'pr_flag'])],
                                     compat="no_conflicts")
 
     ds = xr.merge(allds, compat="override")
+    if len(ds.data_vars) == 0:
+        return "No station found or no requested stations matched variable_type_filter", 404
+
+    # Remove blanks at the beginning and the end of the time range
+    ds_range = ds.dropna('time', how='all', subset=[v['name'] for v in variables if v['name'] in ds])
+    ds = ds.sel(time=slice(ds_range.time[0], ds_range.time[-1]))
+
     if format == 'netcdf':
         f = output_netcdf(ds, encoding, 'NETCDF4_CLASSIC')
         return send_file(f, mimetype='application/x-netcdf4', as_attachment=True, attachment_filename='ahccd.nc')
