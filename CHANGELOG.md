@@ -1,3 +1,8 @@
+2022-08-22.01
+  * Added bounding box support to /download route
+  * Added netcdf format to download
+  * Python >= 3.9 is now required
+
 2022-02-24.01
   * Added variable\_type\_filter parameter to download-ahccd to return only temperature or precipitations variable
 

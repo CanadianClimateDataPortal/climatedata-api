@@ -8,8 +8,10 @@ from download import download, download_ahccd, download_30y, download_regional_3
 from siteinfo import get_location_values_allyears
 
 import pandas as pd
+import xarray as xr
 
 pd.set_option('display.max_rows', 10000)
+xr.set_options(keep_attrs=True)
 
 app = Flask(__name__)
 app.config.from_object('default_settings')

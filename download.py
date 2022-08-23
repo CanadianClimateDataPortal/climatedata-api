@@ -5,26 +5,31 @@ import tempfile
 import numpy as np
 import xarray as xr
 import pandas as pd
+from clisops.core.subset import subset_bbox
 from utils import open_dataset, open_dataset_by_path
 from werkzeug.exceptions import BadRequestKeyError
 import itertools
 
 
-def get_frame(dataset, point, adjust, limit=None):
+def get_subset(dataset, point, adjust, limit=None):
     """
-        Returns a dataframe for a specific coordinate (lat,lon)
-        :param dataset: the xarray dataset to convert
-        :param point: (1x2 array): coordinates to select [lat,lon]
+        Returns a sub-dataset for a specific coordinate (lat,lon)
+        :param dataset: the xarray dataset to select from
+        :param point:   (1x2 vector): coordinates of a single point to select [lat,lon]
+                        (1x4 vector): bounding box to select
         :param adjust: constant to add to the whole dataset after the select but before conversion (ex: for Kelvin to °C)
         :param limit: lower time limit of the data to keep
-        :return: a sliced from the dataset as a dataframe
+        :return: a slice from the dataset
     """
-    ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
+    if len(point) == 2:
+        ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
+    if len(point) == 4:
+        ds = subset_bbox(dataset, lon_bnds=[point[1], point[3]], lat_bnds=[point[0], point[2]])
     if adjust:
         ds = ds + adjust
     if limit:
         ds = ds.where(ds.time >= np.datetime64(limit), drop=True)
-    return ds.to_dataframe()
+    return ds
 
 
 def output_json(df, var, freq, decimals, period=''):
@@ -66,6 +71,22 @@ def output_json(df, var, freq, decimals, period=''):
     """)
 
 
+def output_netcdf(ds, encoding, format):
+    """
+    Export an in-memory dataset to a netcdf file, returns a file handle to an unlinked
+    temporary file
+    :param ds: an xarray dataset
+    :param encoding: encoding dictionary used by to_netcdf
+    :param format: netcdf format to use (NETCDF4, NETCDF4_CLASSIC)
+    :return: A file handle to the exported netcdf
+    """
+    filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))
+    ds.to_netcdf(filename, encoding=encoding, format=format)
+    f = open(filename, "rb")
+    os.unlink(filename)
+    return f
+
+
 def download():
     """
         Performs a download of annual/monthly dataset.
@@ -77,10 +98,17 @@ def download():
           'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }
 
-        CURL format:
+        JSON format:
         curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
           "month" : "jan",
           "format" : "json",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+        Netcdf Format
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "nc",
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
 
@@ -98,35 +126,65 @@ def download():
           "points": [[49.97204543090215,-72.96164786407991], [49.05163514254488,-74.11483668106955], [48.23844206206425,-75.04837048529926], [47.16613204524246,-76.00386979080497]]
         }'
 
+        bbox example (csv):
+        curl -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "ann",
+          "format" : "csv",
+          "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058]
+        }'
+
+        bbox example (netCDF):
+        curl -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "all",
+          "format" : "nc",
+          "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058]
+        }'
+
+
         var: variable to fetch
         month: frequency-sampling to fetch
-        format: csv or json
-        points: array of [lat,lon] coordinates
+        format: csv, json or nc
+          points: array of [lat,lon] coordinates
+        or
+          bbox: bounding box coordinates: [min-lat, min-lon, max-lat, max-lon]
     """
     args = request.get_json()
     try:
         var = args['var']
         month = args['month']
         format = args['format']
-        points = args['points']
+        points = args.get('points', None)
+        bbox = args.get('bbox', None)
+
         decimals = int(args.get('decimals', 2))
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
         monthpath, freq = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
-        if len(points) == 0:
-            raise ValueError
 
-        # Check if user abuses the API
-        points_limit = app.config['DOWNLOAD_POINTS_LIMIT']
-        if month == 'all':
-            points_limit = points_limit / 12
-        if len(points) > points_limit:
-            return "Bad request: too many points requested", 400
-        for p in points:
-            if len(p) != 2:
+        if points and bbox:
+            return "Bad request: can't request both points and bbox simultaneously", 400
+
+        if points:
+            if len(points) == 0:
                 raise ValueError
+            # Check if user abuses the API
+            points_limit = app.config['DOWNLOAD_POINTS_LIMIT']
+            if month == 'all':
+                points_limit = points_limit / 12
+            if len(points) > points_limit:
+                return "Bad request: too many points requested", 400
+            for p in points:
+                if len(p) != 2:
+                    raise ValueError
+        elif bbox:
+            if len(bbox) != 4:
+                return "Bad request: bbox must be an array of length 4", 400
+            # TODO: calculate add API limit here... implementation may be way faster than points
+        else:
+            return "Bad request: neither points or bbox requested", 400
+
     except (ValueError, BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
@@ -153,22 +211,52 @@ def download():
     else:
         adjust = 0
 
-    dfs = [[get_frame(dataset, p, adjust, limit) for dataset in datasets] for p in points]
+    if points:
+        points_datasets = [[get_subset(dataset, p, adjust, limit) for dataset in datasets] for p in points]
 
-    # remove empty dataframes
-    dfs = [[df for df in dflist if not df.empty] for dflist in dfs]
-    dfs = [dflist for dflist in dfs if not len(dflist) == 0]
-    if len(dfs) == 0:
-        return "No points found", 404
+    if bbox:
+        subsetted_datasets = [get_subset(dataset, bbox, adjust, limit) for dataset in datasets]
+
+    if format == 'netcdf':
+        if points:
+            combined_ds = xr.combine_nested(points_datasets, ['region', 'time'], combine_attrs='override').dropna(
+                'region', how='all')
+        else:
+            combined_ds = xr.merge(subsetted_datasets)
+
+        encodings = {}
+        for v in combined_ds.data_vars:
+            if combined_ds[v].attrs.get('units') == 'K':
+                combined_ds[v].attrs['units'] = 'degC'
+            encodings[v] = {"zlib": True}
+        f = output_netcdf(combined_ds, encodings, 'NETCDF4')
+        return send_file(f, mimetype='application/x-netcdf4')
+
+    if points:
+        dfs = [[j.to_dataframe() for j in i] for i in points_datasets]
+        # remove empty dataframes
+        dfs = [[df for df in dflist if not df.empty] for dflist in dfs]
+        dfs = [dflist for dflist in dfs if not len(dflist) == 0]
+        if len(dfs) == 0:
+            return "No points found", 404
+    if bbox:
+        dfs = [i.to_dataframe() for i in subsetted_datasets]
 
     if format == 'csv':
-        dfs = [j for sub in dfs for j in sub]  # flattens sublists
+        if points:
+            dfs = [j for sub in dfs for j in sub]  # flattens sublists
         return Response(pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).to_csv(float_format=f'%.{decimals}f'),
                         mimetype='text/csv')
     if format == 'json':
-        return Response("[" + ",".join(
-            map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month), dfs)) + "]",
-                        mimetype='application/json')
+        if points:
+            return Response("[" + ",".join(
+                map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month), dfs)) + "]",
+                            mimetype='application/json')
+        if bbox:
+            df_groups = [g[1].reset_index().set_index('time') for g in pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).groupby(by=['lat','lon'])]
+            return Response("[" +
+                ",".join(map(lambda df: output_json(df, var, freq, decimals, month), df_groups)) + "]",
+                            mimetype='application/json')
     return "Bad request", 400
 
 
@@ -359,10 +447,7 @@ def download_ahccd():
     ds = ds.sel(time=slice(ds_range.time[0], ds_range.time[-1]))
 
     if format == 'netcdf':
-        filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))
-        ds.to_netcdf(filename, encoding=encoding, format='NETCDF4_CLASSIC')
-        f = open(filename, "rb")
-        os.unlink(filename)
+        f = output_netcdf(ds, encoding, 'NETCDF4_CLASSIC')
         return send_file(f, mimetype='application/x-netcdf4', as_attachment=True, attachment_filename='ahccd.nc')
 
     if format == 'csv':

@@ -1,8 +1,10 @@
 wheel
 flask
 pandas
-xarray
+xarray>=0.16.0
 sentry-sdk[flask]
 netCDF4
+protobuf>=3.19.4,<4.21.0
 mapbox_vector_tile
 requests
+clisops
