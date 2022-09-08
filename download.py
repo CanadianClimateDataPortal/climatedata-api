@@ -23,8 +23,10 @@ def get_subset(dataset, point, adjust, limit=None):
     """
     if len(point) == 2:
         ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
-    if len(point) == 4:
+    elif len(point) == 4:
         ds = subset_bbox(dataset, lon_bnds=[point[1], point[3]], lat_bnds=[point[0], point[2]])
+    else:
+        raise ValueError("point argument must be of length 2 or 4")
     if adjust:
         ds = ds + adjust
     if limit:
@@ -75,12 +77,12 @@ def output_netcdf(ds, encoding, format):
     """
     Export an in-memory dataset to a netcdf file, returns a file handle to an unlinked
     temporary file
-    :param ds: an xarray dataset
+    :param ds: a xarray dataset
     :param encoding: encoding dictionary used by to_netcdf
     :param format: netcdf format to use (NETCDF4, NETCDF4_CLASSIC)
     :return: A file handle to the exported netcdf
     """
-    filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))
+    filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))  # noqa
     ds.to_netcdf(filename, encoding=encoding, format=format)
     f = open(filename, "rb")
     os.unlink(filename)
@@ -212,14 +214,13 @@ def download():
         adjust = 0
 
     if points:
-        points_datasets = [[get_subset(dataset, p, adjust, limit) for dataset in datasets] for p in points]
-
-    if bbox:
+        subsetted_datasets = [[get_subset(dataset, p, adjust, limit) for dataset in datasets] for p in points]
+    else:
         subsetted_datasets = [get_subset(dataset, bbox, adjust, limit) for dataset in datasets]
 
     if format == 'netcdf':
         if points:
-            combined_ds = xr.combine_nested(points_datasets, ['region', 'time'], combine_attrs='override').dropna(
+            combined_ds = xr.combine_nested(subsetted_datasets, ['region', 'time'], combine_attrs='override').dropna(
                 'region', how='all')
         else:
             combined_ds = xr.merge(subsetted_datasets)
@@ -233,13 +234,13 @@ def download():
         return send_file(f, mimetype='application/x-netcdf4')
 
     if points:
-        dfs = [[j.to_dataframe() for j in i] for i in points_datasets]
+        dfs = [[j.to_dataframe() for j in i] for i in subsetted_datasets]
         # remove empty dataframes
         dfs = [[df for df in dflist if not df.empty] for dflist in dfs]
         dfs = [dflist for dflist in dfs if not len(dflist) == 0]
         if len(dfs) == 0:
             return "No points found", 404
-    if bbox:
+    else:
         dfs = [i.to_dataframe() for i in subsetted_datasets]
 
     if format == 'csv':
@@ -250,12 +251,14 @@ def download():
     if format == 'json':
         if points:
             return Response("[" + ",".join(
-                map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month), dfs)) + "]",
+                map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month),
+                    dfs)) + "]",
                             mimetype='application/json')
-        if bbox:
-            df_groups = [g[1].reset_index().set_index('time') for g in pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).groupby(by=['lat','lon'])]
+        else:
+            df_groups = [g[1].reset_index().set_index('time') for g in
+                         pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).groupby(by=['lat', 'lon'])]
             return Response("[" +
-                ",".join(map(lambda df: output_json(df, var, freq, decimals, month), df_groups)) + "]",
+                            ",".join(map(lambda df: output_json(df, var, freq, decimals, month), df_groups)) + "]",
                             mimetype='application/json')
     return "Bad request", 400
 
@@ -421,7 +424,7 @@ def download_ahccd():
 
     for var in variables:
         ds = xr.open_dataset(os.path.join(app.config['AHCCD_FOLDER'], var['filename']), mask_and_scale=False,
-                                decode_times=False)
+                             decode_times=False)
         ds['time'] = xr.decode_cf(ds).time
         s = list(set(stations).intersection(set(ds['station'].values)))
         if s:
