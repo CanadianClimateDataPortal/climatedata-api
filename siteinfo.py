@@ -18,7 +18,7 @@ def get_location_values_allyears():
         return "Bad request", 400
 
     anusplin_dataset = xr.open_dataset(
-        app.config['NETCDF_LOCATIONS_FOLDER'] + "/SearchLocation_30yAvg_anusplin_nrcan_canada_tg_mean_prcptot_YS.nc")
+        app.config['DATASETS_ROOT'] / "locations" / "SearchLocation_30yAvg_anusplin_nrcan_canada_tg_mean_prcptot_YS.nc")
     anusplin_location_slice = anusplin_dataset.sel(lat=lati, lon=loni, method='nearest')
 
     anusplin_1950_location_slice = anusplin_location_slice.sel(time='1951-01-01')
@@ -28,8 +28,7 @@ def get_location_values_allyears():
     anusplin_1980_temp = round(anusplin_1980_location_slice.tg_mean.item() + app.config['KELVIN_TO_C'], 1)
     anusplin_1950_precip = round(anusplin_1950_location_slice.prcptot.item())
 
-    bcc_dataset = xr.open_dataset(app.config[
-                                      'NETCDF_LOCATIONS_FOLDER'] + "/SearchLocation_30yAvg_wDeltas_BCCAQv2+ANUSPLIN300_rcp85_tg_mean_prcptot_YS.nc")
+    bcc_dataset = xr.open_dataset(app.config['DATASETS_ROOT'] / "locations" / "SearchLocation_30yAvg_wDeltas_BCCAQv2+ANUSPLIN300_rcp85_tg_mean_prcptot_YS.nc")
     bcc_location_slice = bcc_dataset.sel(lat=lati, lon=loni, method='nearest')
     bcc_2020_location_slice = bcc_location_slice.sel(time='2021-01-01')
     bcc_2050_location_slice = bcc_location_slice.sel(time='2051-01-01')

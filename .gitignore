@@ -5,3 +5,4 @@ netcdfs
 local_settings.py
 *.urls
 venv
+datasets
