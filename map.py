@@ -13,7 +13,7 @@ def get_choro_values(partition, var, scenario, month='ann'):
     try:
         msys = app.config['MONTH_LUT'][month][1]
         month_number = app.config['MONTH_NUMBER_LUT'][month]
-        dataset_name = request.args.get('dataset_name', 'CMIP5')
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
 
         if dataset_name not in app.config['FILENAME_FORMATS']:
             raise KeyError("Invalid dataset requested")
@@ -79,7 +79,7 @@ def get_delta_30y_gridded_values(lat, lon, var, month):
         period = int(request.args['period'])
         delta7100 = request.args.get('delta7100', 'false')
         decimals = int(request.args.get('decimals', 2))
-        dataset_name = request.args.get('dataset_name', 'CMIP5')
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
 
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
@@ -141,7 +141,7 @@ def get_delta_30y_regional_values(partition, index, var, month):
         period = int(request.args['period'])
         delta7100 = request.args.get('delta7100', 'false')
         decimals = int(request.args.get('decimals', 2))
-        dataset_name = request.args.get('dataset_name', 'CMIP5')
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
 
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
