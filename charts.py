@@ -71,7 +71,7 @@ def generate_charts(var, lat, lon, month='ann'):
         monthpath, msys = app.config['MONTH_LUT'][month]
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
         decimals = int(request.args.get('decimals', 2))
-        dataset_name = request.args.get('dataset_name', 'CMIP5')
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
 
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
@@ -193,7 +193,7 @@ def generate_regional_charts(partition, index, var, month='ann'):
         msys = app.config['MONTH_LUT'][month][1]
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
         decimals = int(request.args.get('decimals', 2))
-        dataset_name = request.args.get('dataset_name', 'CMIP5')
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
 
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
