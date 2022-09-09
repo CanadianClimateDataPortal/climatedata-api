@@ -3,7 +3,7 @@ import xarray as xr
 
 def open_dataset(var, msys, month, formats, root):
     """
-    Open and return an xarray dataset. Try all path formats, since provided datasets had inconsistent naming convention
+    Open and return a xarray dataset. Try all path formats, since provided datasets had inconsistent naming convention
     :return: Dataset object
     """
     for filename in formats:
@@ -22,7 +22,7 @@ def open_dataset(var, msys, month, formats, root):
 
 def open_dataset_by_path(path):
     """
-        Open and return an xarray dataset.
+    Open and return a xarray dataset
     :param path: path of the dataset
     :return: Dataset object
     """

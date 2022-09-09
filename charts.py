@@ -1,5 +1,6 @@
 from flask import Flask, request, Response, send_file, current_app as app
-from utils import open_dataset, open_dataset_by_path, convert_time_series_dataset_to_list, convert_time_series_dataset_to_dict
+from utils import open_dataset, open_dataset_by_path, convert_time_series_dataset_to_list, \
+    convert_time_series_dataset_to_dict
 import numpy as np
 import xarray as xr
 from werkzeug.exceptions import BadRequestKeyError
@@ -45,8 +46,9 @@ def _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_
         delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
 
     for scenario in app.config['SCENARIOS']:
-        chart_series[f"30y_{scenario}_median"] = convert_time_series_dataset_to_dict(delta_30y_slice[f'{scenario}_{var}_p50'],
-                                                                                  decimals)
+        chart_series[f"30y_{scenario}_median"] = convert_time_series_dataset_to_dict(
+            delta_30y_slice[f'{scenario}_{var}_p50'],
+            decimals)
         chart_series[f"30y_{scenario}_range"] = convert_time_series_dataset_to_dict(
             xr.merge([delta_30y_slice[f'{scenario}_{var}_p10'],
                       delta_30y_slice[f'{scenario}_{var}_p90']]), decimals)
@@ -114,7 +116,7 @@ def generate_spei_charts(var, lati, loni, month, decimals):
         Copied from generate-charts, but handles the difference for SPEI (i.e. single file)
         ex: curl 'http://localhost:5000/generate-charts/60.31062731740045/-100.06347656250001/spei_12m/ann'
     """
-    # very specific exception for location page, return december values (annual doesn't exists anyway for SPEI)
+    # very specific exception for location page, return december values (annual doesn't exist anyway for SPEI)
     if month == 'ann':
         month = 'dec'
 
@@ -176,7 +178,7 @@ def generate_slr_charts(lati, loni):
             xr.merge([location_slice[f'{scenario}_slr_p05'],
                       location_slice[f'{scenario}_slr_p95']]), decimals=0)
     chart_series['rcp85_enhanced'] = [[dataset_enhanced['time'].item() / 10 ** 6,
-                                       round(enhanced_location_slice['enhanced_p50'].item(),0)]]
+                                       round(enhanced_location_slice['enhanced_p50'].item(), 0)]]
 
     return chart_series
 
