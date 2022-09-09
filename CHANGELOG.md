@@ -1,3 +1,6 @@
+2022-09-09.01
+  * Added CMIP6 support to climatedata-api
+
 2022-08-22.01
   * Added bounding box support to /download route
   * Added netcdf format to download
