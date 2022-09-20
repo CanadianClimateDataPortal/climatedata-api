@@ -492,7 +492,7 @@ def download_ahccd():
 
     if format == 'netcdf':
         f = output_netcdf(ds, encoding, 'NETCDF4_CLASSIC')
-        return send_file(f, mimetype='application/x-netcdf4', as_attachment=True, attachment_filename='ahccd.nc')
+        return send_file(f, mimetype='application/x-netcdf4', as_attachment=True, download_name='ahccd.nc')
 
     if format == 'csv':
         df = ds.to_dataframe()
