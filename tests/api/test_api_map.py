@@ -6,7 +6,9 @@ import requests
     "url,status_code",
     [
         pytest.param(
-            "http://localhost:5000/get-choro-values/census/tx_max/rcp85/ann/?period=1971", 200, id="get_choro_values"
+            "http://localhost:5000/get-choro-values/census/tx_max/rcp85/ann/?period=1971",
+            200,
+            id="get_choro_values"
         ),
         pytest.param(
             "http://localhost:5000/get-choro-values/census/tx_max/ssp585/ann/?period=2071&dataset_name=CMIP6&delta7100=true",

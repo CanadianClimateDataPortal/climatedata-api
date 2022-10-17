@@ -26,7 +26,9 @@ import requests
             id="generate_slr_charts",
         ),
         pytest.param(
-            "http://localhost:5000/generate-regional-charts/census/4510/tx_max/ann", 200, id="generate_regional_charts"
+            "http://localhost:5000/generate-regional-charts/census/4510/tx_max/ann",
+            200,
+            id="generate_regional_charts"
         ),
         pytest.param(
             "http://localhost:5000/generate-regional-charts/census/4510/tx_max/ann?dataset_name=CMIP6",
