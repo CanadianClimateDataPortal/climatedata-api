@@ -1,3 +1,6 @@
+2022-10-14.01
+  * Fixed AHCCD performance issue with xarray >= 2022.06.0
+
 2022-08-22.01
   * Added bounding box support to /download route
   * Added netcdf format to download

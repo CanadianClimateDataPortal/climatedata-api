@@ -425,7 +425,7 @@ def download_ahccd():
     for var in variables:
         ds = xr.open_dataset(os.path.join(app.config['AHCCD_FOLDER'], var['filename']), mask_and_scale=False,
                              decode_times=False)
-        ds['time'] = xr.decode_cf(ds).time
+        ds['time'] = xr.decode_cf(ds, drop_variables=ds.data_vars).time
         s = list(set(stations).intersection(set(ds['station'].values)))
         if s:
             ds = ds.sel(station=s)
