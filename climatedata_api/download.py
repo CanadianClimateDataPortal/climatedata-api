@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from clisops.core.subset import subset_bbox
-from utils import open_dataset, open_dataset_by_path
+from climatedata_api.utils import open_dataset, open_dataset_by_path
 from werkzeug.exceptions import BadRequestKeyError
 import itertools
 
@@ -459,7 +459,7 @@ def download_ahccd():
             os.path.join(app.config['AHCCD_FOLDER'].format(root=app.config['DATASETS_ROOT']), var['filename']),
             mask_and_scale=False,
             decode_times=False)
-        ds['time'] = xr.decode_cf(ds).time
+        ds['time'] = xr.decode_cf(ds, drop_variables=ds.data_vars).time
         s = list(set(stations).intersection(set(ds['station'].values)))
         if s:
             ds = ds.sel(station=s)

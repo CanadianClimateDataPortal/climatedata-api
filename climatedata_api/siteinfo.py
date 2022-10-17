@@ -1,5 +1,5 @@
 from flask import request, current_app as app
-from utils import open_dataset
+from climatedata_api.utils import open_dataset
 from werkzeug.exceptions import BadRequestKeyError
 import json
 import xarray as xr

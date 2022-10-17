@@ -1,5 +1,5 @@
 from flask import Flask, request, Response, send_file, current_app as app
-from utils import open_dataset, open_dataset_by_path
+from climatedata_api.utils import open_dataset, open_dataset_by_path
 import json
 from werkzeug.exceptions import BadRequestKeyError
 

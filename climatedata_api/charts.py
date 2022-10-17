@@ -1,5 +1,5 @@
 from flask import request, current_app as app
-from utils import open_dataset, open_dataset_by_path, convert_time_series_dataset_to_list, \
+from climatedata_api.utils import open_dataset, open_dataset_by_path, convert_time_series_dataset_to_list, \
     convert_time_series_dataset_to_dict
 import numpy as np
 import xarray as xr
