@@ -1,14 +1,18 @@
-from flask import request, Response, send_file, current_app as app
-from textwrap import dedent
+import itertools
 import os
 import tempfile
+from textwrap import dedent
+
 import numpy as np
-import xarray as xr
 import pandas as pd
+import xarray as xr
 from clisops.core.subset import subset_bbox
-from climatedata_api.utils import open_dataset, open_dataset_by_path
+from flask import Response
+from flask import current_app as app
+from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
-import itertools
+
+from climatedata_api.utils import open_dataset, open_dataset_by_path
 
 
 def get_subset(dataset, point, adjust, limit=None):
