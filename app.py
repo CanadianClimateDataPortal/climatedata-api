@@ -5,7 +5,7 @@ import requests
 from charts import generate_charts, generate_regional_charts
 from map import get_choro_values, get_delta_30y_gridded_values, get_delta_30y_regional_values, get_slr_gridded_values
 from download import download, download_ahccd, download_30y, download_regional_30y
-from siteinfo import get_location_values_allyears
+from siteinfo import get_location_values_allyears, get_location_values
 
 import pandas as pd
 import xarray as xr
@@ -46,7 +46,7 @@ app.add_url_rule('/download-regional-30y/<partition>/<index>/<var>/<month>', vie
 
 # various site information
 app.add_url_rule('/get_location_values_allyears.php', view_func=get_location_values_allyears)
-
+app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_values)
 
 @app.route('/status')
 def check_status():
