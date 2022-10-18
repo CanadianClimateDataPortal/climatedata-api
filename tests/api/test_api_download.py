@@ -1,37 +1,39 @@
 import pytest
 import requests
 
+from tests.configs import TEST_HOST_URL
+
 
 @pytest.mark.parametrize(
     "url,status_code",
     [
         pytest.param(
-            "http://localhost:5000/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann?decimals=2",
+            f"{TEST_HOST_URL}/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann?decimals=2",
             200,
             id="download_30y",
         ),
         pytest.param(
-            "http://localhost:5000/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann?decimals=2&dataset_name=CMIP6",
+            f"{TEST_HOST_URL}/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann?decimals=2&dataset_name=CMIP6",
             200,
             id="download_30y_cmip6",
         ),
         pytest.param(
-            "http://localhost:5000/download-regional-30y/census/1/tx_max/ann?decimals=3",
+            f"{TEST_HOST_URL}/download-regional-30y/census/1/tx_max/ann?decimals=3",
             200,
             id="download_regional_30y",
         ),
         pytest.param(
-            "http://localhost:5000/download-regional-30y/census/1/tx_max/ann?decimals=3&dataset_name=CMIP6",
+            f"{TEST_HOST_URL}/download-regional-30y/census/1/tx_max/ann?decimals=3&dataset_name=CMIP6",
             200,
             id="download_regional_30y_cmip6",
         ),
         pytest.param(
-            "http://localhost:5000/download-ahccd?format=csv&stations=3081680,8400413",
+            f"{TEST_HOST_URL}/download-ahccd?format=csv&stations=3081680,8400413",
             200,
             id="download_ahccd",
         ),
         pytest.param(
-            "http://localhost:5000/download-ahccd?format=csv&stations=3081680,8400413&variable_type_filter=P",
+            f"{TEST_HOST_URL}/download-ahccd?format=csv&stations=3081680,8400413&variable_type_filter=P",
             200,
             id="download_ahccd_with_filter",
         ),
@@ -46,7 +48,7 @@ def test_api_download_get(url: str, status_code: int):
     "url,status_code,payload",
     [
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "tx_max",
@@ -62,7 +64,7 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_json",
         ),
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "tx_max",
@@ -78,7 +80,7 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_csv",
         ),
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "tx_max",
@@ -95,7 +97,7 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_cmip5_csv",
         ),
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "tx_max",
@@ -112,7 +114,7 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_cmip6_csv",
         ),
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "tx_max",
@@ -129,7 +131,7 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_cmip5_netcdf",
         ),
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "tx_max",
@@ -146,7 +148,7 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_cmip6_netcdf",
         ),
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "slr",
@@ -162,7 +164,7 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_slr_csv",
         ),
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "spei_3m",
@@ -178,7 +180,7 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_spei_3m_csv",
         ),
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "tx_max",
@@ -189,7 +191,7 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_bbox_csv",
         ),
         pytest.param(
-            "http://localhost:5000/download",
+            f"{TEST_HOST_URL}/download",
             200,
             {
                 "var": "tx_max",
@@ -200,25 +202,25 @@ def test_api_download_get(url: str, status_code: int):
             id="download_dataset_bbox_netcdf",
         ),
         pytest.param(
-            "http://localhost:5000/download-ahccd",
+            f"{TEST_HOST_URL}/download-ahccd",
             200,
             {"format": "csv", "stations": ["3081680", "8400413"]},
             id="download_ahccd_csv",
         ),
         pytest.param(
-            "http://localhost:5000/download-ahccd",
+            f"{TEST_HOST_URL}/download-ahccd",
             200,
             {"format": "csv", "stations": ["3034720"]},
             id="download_ahccd_station_precip_only_csv",
         ),
         pytest.param(
-            "http://localhost:5000/download-ahccd",
+            f"{TEST_HOST_URL}/download-ahccd",
             200,
             {"format": "csv", "stations": ["8402757"]},
             id="download_ahccd_station_temp_only_csv",
         ),
         pytest.param(
-            "http://localhost:5000/download-ahccd",
+            f"{TEST_HOST_URL}/download-ahccd",
             200,
             {"format": "csv", "stations": ["3034720", "8402757"]},
             id="download_ahccd_station_one_precip_one_temp_csv",

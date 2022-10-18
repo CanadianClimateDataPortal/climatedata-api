@@ -3,12 +3,14 @@ import json
 import pytest
 import requests
 
+from tests.configs import TEST_HOST_URL
+
 
 @pytest.mark.parametrize(
     "url,status_code,validator",
     [
         pytest.param(
-            "http://localhost:5000/get-location-values/45.551538/-73.744616?dataset_name=cmip5",
+            f"{TEST_HOST_URL}/get-location-values/45.551538/-73.744616?dataset_name=cmip5",
             200,
             json.loads,
             id="get_location_values"
