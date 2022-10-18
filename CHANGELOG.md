@@ -1,6 +1,7 @@
 2022-10-18.1
   * Added API online tests
   * Fix small bug with SPEI download
+  * Add basic development tools
 
 2022-09-09.01
   * Added CMIP6 support to climatedata-api
