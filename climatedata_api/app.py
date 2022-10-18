@@ -12,7 +12,8 @@ from climatedata_api.map import (get_choro_values,
                                  get_delta_30y_gridded_values,
                                  get_delta_30y_regional_values,
                                  get_slr_gridded_values)
-from climatedata_api.siteinfo import get_location_values_allyears
+from climatedata_api.siteinfo import (get_location_values,
+                                      get_location_values_allyears)
 
 pd.set_option('display.max_rows', 10000)
 xr.set_options(keep_attrs=True)
@@ -50,6 +51,7 @@ app.add_url_rule('/download-regional-30y/<partition>/<index>/<var>/<month>', vie
 
 # various site information
 app.add_url_rule('/get_location_values_allyears.php', view_func=get_location_values_allyears)
+app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_values)
 
 
 @app.route('/status')
