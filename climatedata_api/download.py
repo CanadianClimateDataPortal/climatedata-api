@@ -229,7 +229,7 @@ def download():
         datasets = [open_dataset_by_path(app.config['NETCDF_SLR_PATH'].format(root=app.config['DATASETS_ROOT']))]
     elif var in app.config['SPEI_VARIABLES']:
         datasets = [open_dataset_by_path(
-            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['DATASETS_ROOT']))]
+            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['DATASETS_ROOT'], var=var))]
         if month != 'all':
             monthnumber = app.config['MONTH_NUMBER_LUT'][month]
             datasets[0] = datasets[0].sel(time=(datasets[0].time.dt.month == monthnumber))
