@@ -1,14 +1,18 @@
-from flask import request, Response, send_file, current_app as app
-from textwrap import dedent
+import itertools
 import os
 import tempfile
+from textwrap import dedent
+
 import numpy as np
-import xarray as xr
 import pandas as pd
+import xarray as xr
 from clisops.core.subset import subset_bbox
-from utils import open_dataset, open_dataset_by_path
+from flask import Response
+from flask import current_app as app
+from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
-import itertools
+
+from climatedata_api.utils import open_dataset, open_dataset_by_path
 
 
 def get_subset(dataset, point, adjust, limit=None):
@@ -225,7 +229,7 @@ def download():
         datasets = [open_dataset_by_path(app.config['NETCDF_SLR_PATH'].format(root=app.config['DATASETS_ROOT']))]
     elif var in app.config['SPEI_VARIABLES']:
         datasets = [open_dataset_by_path(
-            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['DATASETS_ROOT']))]
+            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['DATASETS_ROOT'], var=var))]
         if month != 'all':
             monthnumber = app.config['MONTH_NUMBER_LUT'][month]
             datasets[0] = datasets[0].sel(time=(datasets[0].time.dt.month == monthnumber))

@@ -1,9 +1,12 @@
-from flask import request, current_app as app
-from utils import open_dataset, open_dataset_by_path, convert_time_series_dataset_to_list, \
-    convert_time_series_dataset_to_dict
 import numpy as np
 import xarray as xr
+from flask import current_app as app
+from flask import request
 from werkzeug.exceptions import BadRequestKeyError
+
+from climatedata_api.utils import (convert_time_series_dataset_to_dict,
+                                   convert_time_series_dataset_to_list,
+                                   open_dataset, open_dataset_by_path)
 
 
 def _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_slice, delta_30y_slice, var, decimals, dataset_name):
@@ -165,7 +168,8 @@ def generate_slr_charts(lati, loni):
     dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'].format(root=app.config['DATASETS_ROOT']))
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
 
-    dataset_enhanced = open_dataset_by_path(app.config['NETCDF_SLR_ENHANCED_PATH'].format(root=app.config['DATASETS_ROOT']))
+    dataset_enhanced = open_dataset_by_path(
+        app.config['NETCDF_SLR_ENHANCED_PATH'].format(root=app.config['DATASETS_ROOT']))
     enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon'])
 
     chart_series = {}
