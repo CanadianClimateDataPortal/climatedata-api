@@ -1,7 +1,11 @@
-from flask import Flask, request, Response, send_file, current_app as app
-from utils import open_dataset, open_dataset_by_path
 import json
+
+from flask import Flask, Response
+from flask import current_app as app
+from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
+
+from climatedata_api.utils import open_dataset, open_dataset_by_path
 
 
 def get_choro_values(partition, var, scenario, month='ann'):
@@ -34,8 +38,8 @@ def get_choro_values(partition, var, scenario, month='ann'):
     return Response(json.dumps(bccaq_time_slice[f"{scenario}_{var}{delta}_p50"]
                                .drop([i for i in bccaq_time_slice.coords if i != 'region']).to_dataframe().astype(
         'float64')
-                               .round(2).fillna(0).transpose().values.tolist()[0]),
-                    mimetype='application/json')
+        .round(2).fillna(0).transpose().values.tolist()[0]),
+        mimetype='application/json')
 
 
 def _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals, dataset_name, percentiles=['p10', 'p50', 'p90']):
@@ -114,10 +118,12 @@ def get_slr_gridded_values(lat, lon):
     dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'].format(root=app.config['DATASETS_ROOT']))
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=f"{period}-01-01")
 
-    dataset_enhanced = open_dataset_by_path(app.config['NETCDF_SLR_ENHANCED_PATH'].format(root=app.config['DATASETS_ROOT']))
+    dataset_enhanced = open_dataset_by_path(
+        app.config['NETCDF_SLR_ENHANCED_PATH'].format(root=app.config['DATASETS_ROOT']))
     enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest')
 
-    slr_values = _convert_delta30_values_to_dict(location_slice, 'slr', "", 0, 'CMIP5', percentiles=['p05', 'p50', 'p95'])
+    slr_values = _convert_delta30_values_to_dict(
+        location_slice, 'slr', "", 0, 'CMIP5', percentiles=['p05', 'p50', 'p95'])
     slr_values['rcp85plus65'] = {'p50': round(enhanced_location_slice['enhanced_p50'].item(), 0)}
     return slr_values
 
