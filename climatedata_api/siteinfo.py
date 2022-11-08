@@ -110,8 +110,8 @@ def get_location_values(lat, lon):
         # It has been previously verified that all deltas in prcptot are positive
         'prcptot':
             {
-                1951: f"{anusplin_slice.sel(time='1951-01-01').prcptot.item():.1f}",
-                1971: f"{anusplin_slice.sel(time='1971-01-01').prcptot.item():.1f}",
+                1951: f"{anusplin_slice.sel(time='1951-01-01').prcptot.item():.0f}",
+                1971: f"{anusplin_slice.sel(time='1971-01-01').prcptot.item():.0f}",
                 "delta_2021_percent": f"{prcptot.sel(time='2021-01-01')[prcptot_delta_var].item() / prcptot_reference * 100:.0f}",
                 "delta_2051_percent": f"{prcptot.sel(time='2051-01-01')[prcptot_delta_var].item() / prcptot_reference * 100:.0f}",
                 "delta_2071_percent": f"{prcptot.sel(time='2071-01-01')[prcptot_delta_var].item() / prcptot_reference * 100:.0f}",
