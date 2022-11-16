@@ -6,9 +6,8 @@
 2022-10-14.01
   * Fixed AHCCD performance issue with xarray >= 2022.06.0
 
-  * 2022-09-09.01
+2022-09-09.01
   * Added CMIP6 support to climatedata-api
-
 
 2022-08-22.01
   * Added bounding box support to /download route
