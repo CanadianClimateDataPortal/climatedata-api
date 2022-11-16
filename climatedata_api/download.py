@@ -278,7 +278,11 @@ def download():
     if output_format == 'csv':
         if points:
             dfs = [j for sub in dfs for j in sub]  # flattens sublists
-        return Response(pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).to_csv(float_format=f'%.{decimals}f'),
+        concatenated_dfs = pd.concat(dfs)
+        columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in concatenated_dfs] + \
+                        sorted([c for c in concatenated_dfs if c not in app.config['CSV_COLUMNS_ORDER']])
+        return Response(concatenated_dfs.sort_values(by=['lat', 'lon', 'time']).to_csv(float_format=f'%.{decimals}f',
+                                                                                       columns=columns_order),
                         mimetype='text/csv')
     if output_format == 'json':
         if points:
