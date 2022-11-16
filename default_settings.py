@@ -167,6 +167,8 @@ AHCCD_ORDER = ['station_name', 'lon', 'lat', 'elev', 'prov',
                'tas', 'tas_flag', 'tasmax', 'tasmax_flag', 'tasmin', 'tasmin_flag',
                'pr', 'pr_flag', 'prlp', 'prlp_flag', 'prsn', 'prsn_flag']
 
+CSV_COLUMNS_ORDER = ['time', 'lat', 'lon']
+
 SYSTEM_CHECKS_HOST = "http://localhost"
 SYSTEM_CHECKS = [
     {'name': 'generate-charts',
