@@ -5,6 +5,8 @@ from textwrap import dedent
 
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
+
 import xarray as xr
 from clisops.core.subset import subset_bbox
 from flask import Response
@@ -13,6 +15,12 @@ from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
 
 from climatedata_api.utils import open_dataset, open_dataset_by_path
+
+
+def float_format_dataframe(df, decimals):
+    for v in df:
+        if v not in ['time', 'lat', 'lon'] and is_numeric_dtype(df[v]):
+            df[v] = df[v].map(lambda x: f"{x:.{decimals}f}" if not pd.isna(x) else '')
 
 
 def get_subset(dataset, point, adjust, limit=None):
@@ -281,8 +289,9 @@ def download():
         concatenated_dfs = pd.concat(dfs)
         columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in concatenated_dfs] + \
                         sorted([c for c in concatenated_dfs if c not in app.config['CSV_COLUMNS_ORDER']])
-        return Response(concatenated_dfs.sort_values(by=['lat', 'lon', 'time']).to_csv(float_format=f'%.{decimals}f',
-                                                                                       columns=columns_order),
+        concatenated_dfs = concatenated_dfs.sort_values(by=['lat', 'lon', 'time'])
+        float_format_dataframe(concatenated_dfs, decimals)
+        return Response(concatenated_dfs.to_csv(columns=columns_order),
                         mimetype='text/csv')
     if output_format == 'json':
         if points:
