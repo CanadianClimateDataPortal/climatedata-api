@@ -1,14 +1,26 @@
-from flask import Flask, request, Response, send_file, current_app as app
-from textwrap import dedent
+import itertools
 import os
 import tempfile
+from textwrap import dedent
+
 import numpy as np
-import xarray as xr
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
+
+import xarray as xr
 from clisops.core.subset import subset_bbox
-from utils import open_dataset, open_dataset_by_path
+from flask import Response
+from flask import current_app as app
+from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
-import itertools
+
+from climatedata_api.utils import open_dataset, open_dataset_by_path
+
+
+def float_format_dataframe(df, decimals):
+    for v in df:
+        if v not in ['time', 'lat', 'lon'] and is_numeric_dtype(df[v]):
+            df[v] = df[v].map(lambda x: f"{x:.{decimals}f}" if not pd.isna(x) else '')
 
 
 def get_subset(dataset, point, adjust, limit=None):
@@ -107,10 +119,35 @@ def download():
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
 
+        CSV format:
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "csv",
+          "dataset_name": "CMIP5",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+        CSV format (CMIP6):
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "csv",
+          "dataset_name": "CMIP6",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+
         Netcdf Format
         curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
           "month" : "jan",
-          "format" : "nc",
+          "format" : "netcdf",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+        Netcdf Format (CMIP6)
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "netcdf",
+          "dataset_name": "CMIP6",
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
 
@@ -138,7 +175,7 @@ def download():
         bbox example (netCDF):
         curl -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
           "month" : "all",
-          "format" : "nc",
+          "format" : "netcdf",
           "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058]
         }'
 
@@ -154,9 +191,10 @@ def download():
     try:
         var = args['var']
         month = args['month']
-        format = args['format']
+        output_format = args['format']
         points = args.get('points', None)
         bbox = args.get('bbox', None)
+        dataset_name = args.get('dataset_name', 'CMIP5').upper()
 
         decimals = int(args.get('decimals', 2))
         if decimals < 0:
@@ -164,6 +202,9 @@ def download():
         monthpath, freq = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
+
+        if dataset_name not in app.config['FILENAME_FORMATS']:
+            raise KeyError("Invalid dataset requested")
 
         if points and bbox:
             return "Bad request: can't request both points and bbox simultaneously", 400
@@ -190,25 +231,24 @@ def download():
     except (ValueError, BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
+    scenarios = app.config['SCENARIOS'][dataset_name]
     limit = None
     if var == 'slr':
-        datasets = [open_dataset_by_path(app.config['NETCDF_SLR_PATH'])]
+        datasets = [open_dataset_by_path(app.config['NETCDF_SLR_PATH'].format(root=app.config['DATASETS_ROOT']))]
     elif var in app.config['SPEI_VARIABLES']:
         datasets = [open_dataset_by_path(
-            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'], var=var))]
+            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['DATASETS_ROOT'], var=var))]
         if month != 'all':
             monthnumber = app.config['MONTH_NUMBER_LUT'][month]
             datasets[0] = datasets[0].sel(time=(datasets[0].time.dt.month == monthnumber))
         limit = app.config['SPEI_DATE_LIMIT']
     else:
         if month == 'all':
-            datasets = [open_dataset(var, freq, m, app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
-                                     app.config['NETCDF_BCCAQV2_YEARLY_FOLDER']) for m in app.config['ALLMONTHS']]
+            datasets = [open_dataset(dataset_name, 'allyears', var, freq, m) for m in app.config['ALLMONTHS']]
         else:
-            datasets = [open_dataset(var, freq, monthpath, app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
-                                     app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])]
+            datasets = [open_dataset(dataset_name, 'allyears', var, freq, monthpath)]
 
-    if var not in app.config['SPEI_VARIABLES'] and datasets[0][f'rcp26_{var}_p50'].attrs.get('units') == 'K':
+    if var not in app.config['SPEI_VARIABLES'] and datasets[0][f'{scenarios[0]}_{var}_p50'].attrs.get('units') == 'K':
         adjust = app.config['KELVIN_TO_C']
     else:
         adjust = 0
@@ -218,7 +258,7 @@ def download():
     else:
         subsetted_datasets = [get_subset(dataset, bbox, adjust, limit) for dataset in datasets]
 
-    if format == 'netcdf':
+    if output_format == 'netcdf':
         if points:
             combined_ds = xr.combine_nested(subsetted_datasets, ['region', 'time'], combine_attrs='override').dropna(
                 'region', how='all')
@@ -243,12 +283,17 @@ def download():
     else:
         dfs = [i.to_dataframe() for i in subsetted_datasets]
 
-    if format == 'csv':
+    if output_format == 'csv':
         if points:
             dfs = [j for sub in dfs for j in sub]  # flattens sublists
-        return Response(pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).to_csv(float_format=f'%.{decimals}f'),
+        concatenated_dfs = pd.concat(dfs)
+        columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in concatenated_dfs] + \
+                        sorted([c for c in concatenated_dfs if c not in app.config['CSV_COLUMNS_ORDER']])
+        concatenated_dfs = concatenated_dfs.sort_values(by=['lat', 'lon', 'time'])
+        float_format_dataframe(concatenated_dfs, decimals)
+        return Response(concatenated_dfs.to_csv(columns=columns_order),
                         mimetype='text/csv')
-    if format == 'json':
+    if output_format == 'json':
         if points:
             return Response("[" + ",".join(
                 map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month),
@@ -260,19 +305,22 @@ def download():
             return Response("[" +
                             ",".join(map(lambda df: output_json(df, var, freq, decimals, month), df_groups)) + "]",
                             mimetype='application/json')
+
+    # invalid/non-supported output format requested
     return "Bad request", 400
 
 
-def _format_30y_slice_to_csv(delta_30y_slice, var, decimals):
+def _format_30y_slice_to_csv(delta_30y_slice, var, decimals, dataset_name):
     """
         Returns a csv response object from a xarray slice
     """
-    if delta_30y_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K':
+    scenarios = app.config['SCENARIOS'][dataset_name]
+    if delta_30y_slice[f'{scenarios[0]}_{var}_p50'].attrs.get('units') == 'K':
         for v in [v for v in delta_30y_slice.data_vars if 'delta' not in v]:
             delta_30y_slice[v] = delta_30y_slice[v] + app.config['KELVIN_TO_C']
     df = delta_30y_slice.to_dataframe()
-    df = df.reindex(columns=["rcp{1}_{var}_{0}p{2}".format(*a, var=var) for a in
-                             itertools.product(['', 'delta7100_'], [26, 45, 85], [10, 50, 90])])
+    df = df.reindex(columns=["{1}_{var}_{0}p{2}".format(*a, var=var) for a in
+                             itertools.product(['', f"{app.config['DELTA_NAMING'][dataset_name]}_"], scenarios, [10, 50, 90])])
 
     return df.to_csv(float_format=f"%.{decimals}f")
 
@@ -281,27 +329,28 @@ def download_30y(var, lat, lon, month):
     """
         Download the 30y and delta values for a single grid cell
         ex: curl 'http://localhost:5000/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann?decimals=2'
+            curl 'http://localhost:5000/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann?decimals=2&dataset_name=CMIP6'
     :return: csv string
     """
     try:
         lati = float(lat)
         loni = float(lon)
         decimals = int(request.args.get('decimals', 2))
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
+
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
         month_path, msys = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
+        if dataset_name not in app.config['FILENAME_FORMATS']:
+            raise KeyError("Invalid dataset requested")
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-    delta_30y_dataset = open_dataset_by_path(
-        app.config['NETCDF_BCCAQV2_30Y_FILENAME_FORMAT'].format(root=app.config['NETCDF_BCCAQV2_30Y_FOLDER'],
-                                                                var=var,
-                                                                msys=msys,
-                                                                month=month_path))
+    delta_30y_dataset = open_dataset(dataset_name, '30ygraph', var, msys, month_path)
     delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
-    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals)
+    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals, dataset_name)
     delta_30y_dataset.close()
     return Response(csv_data, mimetype='text/csv', headers={"Content-disposition": f"attachment; filename={var}.csv"})
 
@@ -310,6 +359,7 @@ def download_regional_30y(partition, index, var, month):
     """
         Download the 30y and delta values for a single grid cell
         ex: curl 'http://localhost:5000/download-regional-30y/census/1/tx_max/ann?decimals=3'
+            curl 'http://localhost:5000/download-regional-30y/census/1/tx_max/ann?decimals=3&dataset_name=CMIP6'
     :return: csv string
     """
     try:
@@ -318,19 +368,18 @@ def download_regional_30y(partition, index, var, month):
         msys = app.config['MONTH_LUT'][month][1]
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
         decimals = int(request.args.get('decimals', 2))
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
+
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
-
         if var not in app.config['VARIABLES']:
             raise ValueError
-        delta30y_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['30yGraph'].format(
-            root=app.config['PARTITIONS_FOLDER'][partition]['30yGraph'],
-            var=var,
-            msys=msys)
+        if dataset_name not in app.config['FILENAME_FORMATS']:
+            raise KeyError("Invalid dataset requested")
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-    delta_30y_dataset = open_dataset_by_path(delta30y_path)
+    delta_30y_dataset = open_dataset(dataset_name, '30ygraph', var, msys, partition=partition)
     delta_30y_slice = delta_30y_dataset.sel(region=indexi).drop(
         [i for i in delta_30y_dataset.coords if i != 'time']).dropna('time')
 
@@ -339,7 +388,7 @@ def download_regional_30y(partition, index, var, month):
         delta_30y_slice = delta_30y_slice.sel(
             time=(delta_30y_slice.time.dt.month == monthnumber))
 
-    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals)
+    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals, dataset_name)
     delta_30y_dataset.close()
     return Response(csv_data, mimetype='text/csv', headers={"Content-disposition": f"attachment; filename={var}.csv"})
 
@@ -423,8 +472,10 @@ def download_ahccd():
     encoding = {}
 
     for var in variables:
-        ds = xr.open_dataset(os.path.join(app.config['AHCCD_FOLDER'], var['filename']), mask_and_scale=False,
-                             decode_times=False)
+        ds = xr.open_dataset(
+            os.path.join(app.config['AHCCD_FOLDER'].format(root=app.config['DATASETS_ROOT']), var['filename']),
+            mask_and_scale=False,
+            decode_times=False)
         ds['time'] = xr.decode_cf(ds, drop_variables=ds.data_vars).time
         s = list(set(stations).intersection(set(ds['station'].values)))
         if s:

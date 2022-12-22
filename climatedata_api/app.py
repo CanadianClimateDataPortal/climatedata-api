@@ -1,14 +1,19 @@
-from flask import Flask
-import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
-import requests
-from charts import generate_charts, generate_regional_charts
-from map import get_choro_values, get_delta_30y_gridded_values, get_delta_30y_regional_values, get_slr_gridded_values
-from download import download, download_ahccd, download_30y, download_regional_30y
-from siteinfo import get_location_values_allyears
-
 import pandas as pd
+import requests
+import sentry_sdk
 import xarray as xr
+from flask import Flask
+from sentry_sdk.integrations.flask import FlaskIntegration
+
+from climatedata_api.charts import generate_charts, generate_regional_charts
+from climatedata_api.download import (download, download_30y, download_ahccd,
+                                      download_regional_30y)
+from climatedata_api.map import (get_choro_values,
+                                 get_delta_30y_gridded_values,
+                                 get_delta_30y_regional_values,
+                                 get_slr_gridded_values)
+from climatedata_api.siteinfo import (get_location_values,
+                                      get_location_values_allyears)
 
 pd.set_option('display.max_rows', 10000)
 xr.set_options(keep_attrs=True)
@@ -46,6 +51,7 @@ app.add_url_rule('/download-regional-30y/<partition>/<index>/<var>/<month>', vie
 
 # various site information
 app.add_url_rule('/get_location_values_allyears.php', view_func=get_location_values_allyears)
+app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_values)
 
 
 @app.route('/status')
