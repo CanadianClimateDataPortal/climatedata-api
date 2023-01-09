@@ -418,6 +418,8 @@ def download_ahccd():
         curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["8402757"]}'
         # case where one stations is in temperatures and the other in precipitations
         curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3034720","8402757"]}'
+        # case with two stations (to check sorting)
+        curl -s 'http://localhost:5000/download-ahccd?format=csv&stations=7042395,7047250'
     """
     try:
         if request.method == 'POST':
@@ -506,7 +508,9 @@ def download_ahccd():
 
     if format == 'csv':
         df = ds.to_dataframe()
+        df = df.replace('', np.nan).dropna(how='all', subset=[c for c in app.config['AHCCD_VALUES_COLUMNS'] if c in df.columns])
         df = df.reindex(columns=[c for c in app.config['AHCCD_ORDER'] if c in df.columns])
+        df = df.sort_values(['station', 'time'])
         return Response(df.to_csv(chunksize=100000),
                         mimetype='text/csv',
                         headers={"Content-disposition": "attachment; filename=ahccd.csv"})
