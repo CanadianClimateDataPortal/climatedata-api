@@ -1,27 +1,46 @@
 import json
 import mapbox_vector_tile
+from pathlib import Path
 
 DEBUG = True
 
-SENTRY_ENV="dev"
-TEMPDIR="/tmp"
+SENTRY_ENV = "dev"
+TEMPDIR = "/tmp"
 
-NETCDF_BCCAQV2_FILENAME_FORMATS=["{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{msys}{month}.nc",
-                         "{root}/{var}/allrcps_ensemble_stats/{msys}/BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1950-2100_{var}_{msys}{month}.nc"]
-NETCDF_BCCAQV2_30Y_FILENAME_FORMAT = "{root}/{var}/{msys}/30yAvg_BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{msys}{month}.nc"
-NETCDF_ANUSPLINV1_FILENAME_FORMATS=["{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}.nc"]
-NETCDF_SPEI_FILENAME_FORMATS="{root}/{var}/SPEI_ensemble_percentiles_allrcps_MON_1900_2100_{var}.nc"
-NETCDF_SPEI_OBSERVED_FILENAME_FORMATS="{root}/{var}/CCRC_CANGRD_MON_1900_2014_spei_bc_ref_period_195001_200512_timev_{var}.nc"
+DATASETS_ROOT = Path("./datasets")
 
-NETCDF_BCCAQV2_YEARLY_FOLDER= "./netcdfs"
-NETCDF_BCCAQV2_30Y_FOLDER = "./netcdfs/30yGraph"
-NETCDF_ANUSPLINV1_YEARLY_FOLDER = "./netcdfs"
-NETCDF_LOCATIONS_FOLDER="./netcdfs/locations"
-NETCDF_SPEI_FOLDER="./netcdfs/SPEI/"
-NETCDF_SLR_PATH="./netcdfs/sealevel/Decadal_CMIP5_ensemble-percentiles_allrcps_2006-2100_slr_YS.nc"
-NETCDF_SLR_ENHANCED_PATH="./netcdfs/sealevel/Decadal_0.1degree_CMIP5_ensemble-percentiles_enhancedscenario_2100_slc_YS_geoserver.nc"
+FILENAME_FORMATS = {
+    'ANUSPLIN_v1': {
+        'allyears': "nrcan_canada_1950-2013_{var}_{freq}.nc",
+        'partitions': {'allyears': "nrcan_canada_1950-2013_{var}_{freq}_regSummary.nc"}
+    },
+    'CMIP5': {
+        'allyears': "BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{freq}{period}.nc",
+        'partitions': {'allyears': "{freq}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
+                       '30ygraph': "{freq}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
+                       '30ymeans': "{freq}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc"},
+        '30ygraph': "30yAvg_BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{freq}{period}.nc"
+    },
+    'CMIP6': {
+        'allyears': "{var}_{freq}_BCCAQ2v2+ANUSPLIN300_historical+allssps_1950-2100_AllYears_percentiles{period}.nc",
+        'partitions': {'allyears': "{freq}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
+                       '30ygraph': "{freq}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
+                       '30ymeans': "{freq}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc"},
+        '30ygraph': "{var}_{freq}_BCCAQ2v2+ANUSPLIN300_historical+allssps_1950-2100_30yGraph_percentiles{period}.nc"
+    }
+}
 
-SCENARIOS=['rcp26', 'rcp45', 'rcp85']
+NETCDF_SPEI_FILENAME_FORMATS = "{root}/SPEI/{var}/SPEI_ensemble_percentiles_allrcps_MON_1900_2100_{var}.nc"
+NETCDF_SPEI_OBSERVED_FILENAME_FORMATS = "{root}/SPEI/{var}/CCRC_CANGRD_MON_1900_2014_spei_bc_ref_period_195001_200512_timev_{var}.nc"
+
+NETCDF_SLR_PATH = "{root}/sealevel/Decadal_CMIP5_ensemble-percentiles_allrcps_2006-2100_slr_YS.nc"
+NETCDF_SLR_ENHANCED_PATH = "{root}/sealevel/Decadal_0.1degree_CMIP5_ensemble-percentiles_enhancedscenario_2100_slc_YS_geoserver.nc"
+
+SCENARIOS = {'CMIP5': ['rcp26', 'rcp45', 'rcp85'],
+             'CMIP6': ['ssp126', 'ssp245', 'ssp585']}
+
+DELTA_NAMING = {'CMIP5': 'delta7100',
+                'CMIP6': 'delta_1971_2000'}
 
 HISTORICAL_DATE_LIMIT_BEFORE = '2005-12-31'
 HISTORICAL_DATE_LIMIT_AFTER = '2005-01-01'
@@ -71,9 +90,9 @@ VARIABLES = ['cdd',
 
 SPEI_VARIABLES = ['spei_3m', 'spei_12m']
 
-MONTH_LUT= {
-    'jan':('_01January','MS'),
-    'feb':('_02February','MS'),
+MONTH_LUT = {
+    'jan': ('_01January', 'MS'),
+    'feb': ('_02February', 'MS'),
     'mar': ('_03March', 'MS'),
     'apr': ('_04April', 'MS'),
     'may': ('_05May', 'MS'),
@@ -86,27 +105,27 @@ MONTH_LUT= {
     'dec': ('_12December', 'MS'),
     'all': ('_', 'MS'),  # valid for download only
     'ann': ('', 'YS'),
-    '2qsapr': ('','2QS-APR'),
+    '2qsapr': ('', '2QS-APR'),
     'winter': ('_winterDJF', 'QS-DEC'),
     'spring': ('_springMAM', 'QS-DEC'),
     'summer': ('_summerJJA', 'QS-DEC'),
     'fall': ('_fallSON', 'QS-DEC')
 }
 
-ALLMONTHS=['_01January',
-            '_02February',
-            '_03March',
-            '_04April',
-            '_05May',
-            '_06June',
-            '_07July',
-            '_08August',
-            '_09September',
-            '_10October',
-            '_11November',
-            '_12December']
+ALLMONTHS = ['_01January',
+             '_02February',
+             '_03March',
+             '_04April',
+             '_05May',
+             '_06June',
+             '_07July',
+             '_08August',
+             '_09September',
+             '_10October',
+             '_11November',
+             '_12December']
 
-MONTH_OUTPUT_LUT= {
+MONTH_OUTPUT_LUT = {
     'jan': 'January',
     'feb': 'February',
     'mar': 'March',
@@ -137,44 +156,24 @@ MONTH_NUMBER_LUT = {
     'dec': 12,
     'ann': 1,
     '2qsapr': 4,
-    'winter':12,
-    'spring':3,
+    'winter': 12,
+    'spring': 3,
     'summer': 6,
     'fall': 9
 }
 
-PARTITIONS_FOLDER = {
-    'census': {'ANUSPLIN': './netcdfs',
-               'BCCAQ': './netcdfs',
-               '30yGraph': './netcdfs'}}
-
-PARTITIONS_PATH_FORMATS = {
-    'census': {
-        'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
-        'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
-        '30yGraph': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
-        'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
-    'health': {
-        'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
-        '30yGraph': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
-        'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
-        'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"},
-    'watershed': {
-        'allyears': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc",
-        '30yGraph': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc",
-        'means': "{root}/{var}/{msys}/allrcps/{msys}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc",
-        'ANUSPLIN': "{root}/{var}/{msys}/nrcan_canada_1950-2013_{var}_{msys}_regSummary.nc"}}
-
-AHCCD_FOLDER = './netcdfs/ahccd'
+AHCCD_FOLDER = '{root}/ahccd'
 AHCCD_ORDER = ['station_name', 'lon', 'lat', 'elev', 'prov',
-             'tas', 'tas_flag', 'tasmax', 'tasmax_flag', 'tasmin', 'tasmin_flag',
-             'pr', 'pr_flag', 'prlp', 'prlp_flag', 'prsn', 'prsn_flag']
+               'tas', 'tas_flag', 'tasmax', 'tasmax_flag', 'tasmin', 'tasmin_flag',
+               'pr', 'pr_flag', 'prlp', 'prlp_flag', 'prsn', 'prsn_flag']
+
+CSV_COLUMNS_ORDER = ['time', 'lat', 'lon']
 
 SYSTEM_CHECKS_HOST = "http://localhost"
-SYSTEM_CHECKS= [
+SYSTEM_CHECKS = [
     {'name': 'generate-charts',
-    'URL': "{}/generate-charts/45.5833333/-73.75/frost_days/ann",
-    'validator': json.loads},
+     'URL': "{}/generate-charts/45.5833333/-73.75/frost_days/ann",
+     'validator': json.loads},
     {'name': 'get_location_values_allyears',
      'URL': "{}/get_location_values_allyears.php?lat=45.583333&lon=-73.75&time=2100-01-01",
      'validator': json.loads},

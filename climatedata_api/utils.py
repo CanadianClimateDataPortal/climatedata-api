@@ -1,28 +1,30 @@
 import xarray as xr
+from flask import current_app as app
 
 
-def open_dataset(var, msys, month, formats, root):
+def open_dataset(dataset_name, filetype, var, freq, period=None, partition=None):
     """
-    Open and return an xarray dataset. Try all path formats, since provided datasets had inconsistent naming convention
+    Open and return a xarray dataset. Try all path formats, since provided datasets had inconsistent naming convention
     :return: Dataset object
     """
-    for filename in formats:
-        try:
-            dataseturl = filename.format(root=root,
-                                         var=var,
-                                         msys=msys,
-                                         month=month)
-            dataset = xr.open_dataset(dataseturl, decode_times=False)
-            dataset['time'] = xr.decode_cf(dataset).time
-            return dataset
-        except FileNotFoundError:
-            pass
-    raise FileNotFoundError("Dataset not found")
+    if partition:
+        filename_format = app.config['FILENAME_FORMATS'][dataset_name]['partitions'][filetype]
+        dataset_path = app.config['DATASETS_ROOT'] / dataset_name / "partitions" / partition / var / freq \
+            / filename_format.format(var=var, freq=freq, period=period)
+    else:
+        filename_format = app.config['FILENAME_FORMATS'][dataset_name][filetype]
+        dataset_path = app.config['DATASETS_ROOT'] / dataset_name / filetype / var / freq \
+            / filename_format.format(var=var, freq=freq, period=period)
+    if not dataset_path.exists():
+        raise FileNotFoundError(f"Dataset not found {dataset_path}")
+    dataset = xr.open_dataset(dataset_path, decode_times=False)
+    dataset['time'] = xr.decode_cf(dataset).time
+    return dataset
 
 
 def open_dataset_by_path(path):
     """
-        Open and return an xarray dataset.
+    Open and return a xarray dataset
     :param path: path of the dataset
     :return: Dataset object
     """

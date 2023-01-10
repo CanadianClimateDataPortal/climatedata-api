@@ -1,3 +1,19 @@
+2022-10-18.1
+  * Added API online tests
+  * Fix small bug with SPEI download
+  * Add basic development tools
+
+2022-10-14.01
+  * Fixed AHCCD performance issue with xarray >= 2022.06.0
+
+2022-09-09.01
+  * Added CMIP6 support to climatedata-api
+
+2022-08-22.01
+  * Added bounding box support to /download route
+  * Added netcdf format to download
+  * Python >= 3.9 is now required
+
 2022-02-24.01
   * Added variable\_type\_filter parameter to download-ahccd to return only temperature or precipitations variable
 

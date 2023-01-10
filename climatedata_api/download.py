@@ -1,30 +1,49 @@
-from flask import Flask, request, Response, send_file, current_app as app
-from textwrap import dedent
+import itertools
 import os
 import tempfile
+from textwrap import dedent
+
 import numpy as np
-import xarray as xr
 import pandas as pd
-from utils import open_dataset, open_dataset_by_path
+from pandas.api.types import is_numeric_dtype
+
+import xarray as xr
+from clisops.core.subset import subset_bbox
+from flask import Response
+from flask import current_app as app
+from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
-import itertools
+
+from climatedata_api.utils import open_dataset, open_dataset_by_path
 
 
-def get_frame(dataset, point, adjust, limit=None):
+def float_format_dataframe(df, decimals):
+    for v in df:
+        if v not in ['time', 'lat', 'lon'] and is_numeric_dtype(df[v]):
+            df[v] = df[v].map(lambda x: f"{x:.{decimals}f}" if not pd.isna(x) else '')
+
+
+def get_subset(dataset, point, adjust, limit=None):
     """
-        Returns a dataframe for a specific coordinate (lat,lon)
-        :param dataset: the xarray dataset to convert
-        :param point: (1x2 array): coordinates to select [lat,lon]
+        Returns a sub-dataset for a specific coordinate (lat,lon)
+        :param dataset: the xarray dataset to select from
+        :param point:   (1x2 vector): coordinates of a single point to select [lat,lon]
+                        (1x4 vector): bounding box to select
         :param adjust: constant to add to the whole dataset after the select but before conversion (ex: for Kelvin to °C)
         :param limit: lower time limit of the data to keep
-        :return: a sliced from the dataset as a dataframe
+        :return: a slice from the dataset
     """
-    ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
+    if len(point) == 2:
+        ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
+    elif len(point) == 4:
+        ds = subset_bbox(dataset, lon_bnds=[point[1], point[3]], lat_bnds=[point[0], point[2]])
+    else:
+        raise ValueError("point argument must be of length 2 or 4")
     if adjust:
         ds = ds + adjust
     if limit:
         ds = ds.where(ds.time >= np.datetime64(limit), drop=True)
-    return ds.to_dataframe()
+    return ds
 
 
 def output_json(df, var, freq, decimals, period=''):
@@ -66,6 +85,22 @@ def output_json(df, var, freq, decimals, period=''):
     """)
 
 
+def output_netcdf(ds, encoding, format):
+    """
+    Export an in-memory dataset to a netcdf file, returns a file handle to an unlinked
+    temporary file
+    :param ds: a xarray dataset
+    :param encoding: encoding dictionary used by to_netcdf
+    :param format: netcdf format to use (NETCDF4, NETCDF4_CLASSIC)
+    :return: A file handle to the exported netcdf
+    """
+    filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))  # noqa
+    ds.to_netcdf(filename, encoding=encoding, format=format)
+    f = open(filename, "rb")
+    os.unlink(filename)
+    return f
+
+
 def download():
     """
         Performs a download of annual/monthly dataset.
@@ -77,10 +112,42 @@ def download():
           'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }
 
-        CURL format:
+        JSON format:
         curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
           "month" : "jan",
           "format" : "json",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+        CSV format:
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "csv",
+          "dataset_name": "CMIP5",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+        CSV format (CMIP6):
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "csv",
+          "dataset_name": "CMIP6",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+
+        Netcdf Format
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "netcdf",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+        Netcdf Format (CMIP6)
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "netcdf",
+          "dataset_name": "CMIP6",
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
 
@@ -98,90 +165,162 @@ def download():
           "points": [[49.97204543090215,-72.96164786407991], [49.05163514254488,-74.11483668106955], [48.23844206206425,-75.04837048529926], [47.16613204524246,-76.00386979080497]]
         }'
 
+        bbox example (csv):
+        curl -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "ann",
+          "format" : "csv",
+          "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058]
+        }'
+
+        bbox example (netCDF):
+        curl -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "all",
+          "format" : "netcdf",
+          "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058]
+        }'
+
+
         var: variable to fetch
         month: frequency-sampling to fetch
-        format: csv or json
-        points: array of [lat,lon] coordinates
+        format: csv, json or nc
+          points: array of [lat,lon] coordinates
+        or
+          bbox: bounding box coordinates: [min-lat, min-lon, max-lat, max-lon]
     """
     args = request.get_json()
     try:
         var = args['var']
         month = args['month']
-        format = args['format']
-        points = args['points']
+        output_format = args['format']
+        points = args.get('points', None)
+        bbox = args.get('bbox', None)
+        dataset_name = args.get('dataset_name', 'CMIP5').upper()
+
         decimals = int(args.get('decimals', 2))
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
         monthpath, freq = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
-        if len(points) == 0:
-            raise ValueError
 
-        # Check if user abuses the API
-        points_limit = app.config['DOWNLOAD_POINTS_LIMIT']
-        if month == 'all':
-            points_limit = points_limit / 12
-        if len(points) > points_limit:
-            return "Bad request: too many points requested", 400
-        for p in points:
-            if len(p) != 2:
+        if dataset_name not in app.config['FILENAME_FORMATS']:
+            raise KeyError("Invalid dataset requested")
+
+        if points and bbox:
+            return "Bad request: can't request both points and bbox simultaneously", 400
+
+        if points:
+            if len(points) == 0:
                 raise ValueError
+            # Check if user abuses the API
+            points_limit = app.config['DOWNLOAD_POINTS_LIMIT']
+            if month == 'all':
+                points_limit = points_limit / 12
+            if len(points) > points_limit:
+                return "Bad request: too many points requested", 400
+            for p in points:
+                if len(p) != 2:
+                    raise ValueError
+        elif bbox:
+            if len(bbox) != 4:
+                return "Bad request: bbox must be an array of length 4", 400
+            # TODO: calculate add API limit here... implementation may be way faster than points
+        else:
+            return "Bad request: neither points or bbox requested", 400
+
     except (ValueError, BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
+    scenarios = app.config['SCENARIOS'][dataset_name]
     limit = None
     if var == 'slr':
-        datasets = [open_dataset_by_path(app.config['NETCDF_SLR_PATH'])]
+        datasets = [open_dataset_by_path(app.config['NETCDF_SLR_PATH'].format(root=app.config['DATASETS_ROOT']))]
     elif var in app.config['SPEI_VARIABLES']:
         datasets = [open_dataset_by_path(
-            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['NETCDF_SPEI_FOLDER'], var=var))]
+            app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['DATASETS_ROOT'], var=var))]
         if month != 'all':
             monthnumber = app.config['MONTH_NUMBER_LUT'][month]
             datasets[0] = datasets[0].sel(time=(datasets[0].time.dt.month == monthnumber))
         limit = app.config['SPEI_DATE_LIMIT']
     else:
         if month == 'all':
-            datasets = [open_dataset(var, freq, m, app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
-                                     app.config['NETCDF_BCCAQV2_YEARLY_FOLDER']) for m in app.config['ALLMONTHS']]
+            datasets = [open_dataset(dataset_name, 'allyears', var, freq, m) for m in app.config['ALLMONTHS']]
         else:
-            datasets = [open_dataset(var, freq, monthpath, app.config['NETCDF_BCCAQV2_FILENAME_FORMATS'],
-                                     app.config['NETCDF_BCCAQV2_YEARLY_FOLDER'])]
+            datasets = [open_dataset(dataset_name, 'allyears', var, freq, monthpath)]
 
-    if var not in app.config['SPEI_VARIABLES'] and datasets[0][f'rcp26_{var}_p50'].attrs.get('units') == 'K':
+    if var not in app.config['SPEI_VARIABLES'] and datasets[0][f'{scenarios[0]}_{var}_p50'].attrs.get('units') == 'K':
         adjust = app.config['KELVIN_TO_C']
     else:
         adjust = 0
 
-    dfs = [[get_frame(dataset, p, adjust, limit) for dataset in datasets] for p in points]
+    if points:
+        subsetted_datasets = [[get_subset(dataset, p, adjust, limit) for dataset in datasets] for p in points]
+    else:
+        subsetted_datasets = [get_subset(dataset, bbox, adjust, limit) for dataset in datasets]
 
-    # remove empty dataframes
-    dfs = [[df for df in dflist if not df.empty] for dflist in dfs]
-    dfs = [dflist for dflist in dfs if not len(dflist) == 0]
-    if len(dfs) == 0:
-        return "No points found", 404
+    if output_format == 'netcdf':
+        if points:
+            combined_ds = xr.combine_nested(subsetted_datasets, ['region', 'time'], combine_attrs='override').dropna(
+                'region', how='all')
+        else:
+            combined_ds = xr.merge(subsetted_datasets)
 
-    if format == 'csv':
-        dfs = [j for sub in dfs for j in sub]  # flattens sublists
-        return Response(pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).to_csv(float_format=f'%.{decimals}f'),
+        encodings = {}
+        for v in combined_ds.data_vars:
+            if combined_ds[v].attrs.get('units') == 'K':
+                combined_ds[v].attrs['units'] = 'degC'
+            encodings[v] = {"zlib": True}
+        f = output_netcdf(combined_ds, encodings, 'NETCDF4')
+        return send_file(f, mimetype='application/x-netcdf4')
+
+    if points:
+        dfs = [[j.to_dataframe() for j in i] for i in subsetted_datasets]
+        # remove empty dataframes
+        dfs = [[df for df in dflist if not df.empty] for dflist in dfs]
+        dfs = [dflist for dflist in dfs if not len(dflist) == 0]
+        if len(dfs) == 0:
+            return "No points found", 404
+    else:
+        dfs = [i.to_dataframe() for i in subsetted_datasets]
+
+    if output_format == 'csv':
+        if points:
+            dfs = [j for sub in dfs for j in sub]  # flattens sublists
+        concatenated_dfs = pd.concat(dfs)
+        columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in concatenated_dfs] + \
+                        sorted([c for c in concatenated_dfs if c not in app.config['CSV_COLUMNS_ORDER']])
+        concatenated_dfs = concatenated_dfs.sort_values(by=['lat', 'lon', 'time'])
+        float_format_dataframe(concatenated_dfs, decimals)
+        return Response(concatenated_dfs.to_csv(columns=columns_order),
                         mimetype='text/csv')
-    if format == 'json':
-        return Response("[" + ",".join(
-            map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month), dfs)) + "]",
-                        mimetype='application/json')
+    if output_format == 'json':
+        if points:
+            return Response("[" + ",".join(
+                map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month),
+                    dfs)) + "]",
+                            mimetype='application/json')
+        else:
+            df_groups = [g[1].reset_index().set_index('time') for g in
+                         pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).groupby(by=['lat', 'lon'])]
+            return Response("[" +
+                            ",".join(map(lambda df: output_json(df, var, freq, decimals, month), df_groups)) + "]",
+                            mimetype='application/json')
+
+    # invalid/non-supported output format requested
     return "Bad request", 400
 
 
-def _format_30y_slice_to_csv(delta_30y_slice, var, decimals):
+def _format_30y_slice_to_csv(delta_30y_slice, var, decimals, dataset_name):
     """
         Returns a csv response object from a xarray slice
     """
-    if delta_30y_slice[f'rcp26_{var}_p50'].attrs.get('units') == 'K':
+    scenarios = app.config['SCENARIOS'][dataset_name]
+    if delta_30y_slice[f'{scenarios[0]}_{var}_p50'].attrs.get('units') == 'K':
         for v in [v for v in delta_30y_slice.data_vars if 'delta' not in v]:
             delta_30y_slice[v] = delta_30y_slice[v] + app.config['KELVIN_TO_C']
     df = delta_30y_slice.to_dataframe()
-    df = df.reindex(columns=["rcp{1}_{var}_{0}p{2}".format(*a, var=var) for a in
-                             itertools.product(['', 'delta7100_'], [26, 45, 85], [10, 50, 90])])
+    df = df.reindex(columns=["{1}_{var}_{0}p{2}".format(*a, var=var) for a in
+                             itertools.product(['', f"{app.config['DELTA_NAMING'][dataset_name]}_"], scenarios, [10, 50, 90])])
 
     return df.to_csv(float_format=f"%.{decimals}f")
 
@@ -190,27 +329,28 @@ def download_30y(var, lat, lon, month):
     """
         Download the 30y and delta values for a single grid cell
         ex: curl 'http://localhost:5000/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann?decimals=2'
+            curl 'http://localhost:5000/download-30y/60.31062731740045/-100.06347656250001/tx_max/ann?decimals=2&dataset_name=CMIP6'
     :return: csv string
     """
     try:
         lati = float(lat)
         loni = float(lon)
         decimals = int(request.args.get('decimals', 2))
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
+
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
         month_path, msys = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
             raise ValueError
+        if dataset_name not in app.config['FILENAME_FORMATS']:
+            raise KeyError("Invalid dataset requested")
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-    delta_30y_dataset = open_dataset_by_path(
-        app.config['NETCDF_BCCAQV2_30Y_FILENAME_FORMAT'].format(root=app.config['NETCDF_BCCAQV2_30Y_FOLDER'],
-                                                                var=var,
-                                                                msys=msys,
-                                                                month=month_path))
+    delta_30y_dataset = open_dataset(dataset_name, '30ygraph', var, msys, month_path)
     delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
-    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals)
+    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals, dataset_name)
     delta_30y_dataset.close()
     return Response(csv_data, mimetype='text/csv', headers={"Content-disposition": f"attachment; filename={var}.csv"})
 
@@ -219,6 +359,7 @@ def download_regional_30y(partition, index, var, month):
     """
         Download the 30y and delta values for a single grid cell
         ex: curl 'http://localhost:5000/download-regional-30y/census/1/tx_max/ann?decimals=3'
+            curl 'http://localhost:5000/download-regional-30y/census/1/tx_max/ann?decimals=3&dataset_name=CMIP6'
     :return: csv string
     """
     try:
@@ -227,19 +368,18 @@ def download_regional_30y(partition, index, var, month):
         msys = app.config['MONTH_LUT'][month][1]
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
         decimals = int(request.args.get('decimals', 2))
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
+
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
-
         if var not in app.config['VARIABLES']:
             raise ValueError
-        delta30y_path = app.config['PARTITIONS_PATH_FORMATS'][partition]['30yGraph'].format(
-            root=app.config['PARTITIONS_FOLDER'][partition]['30yGraph'],
-            var=var,
-            msys=msys)
+        if dataset_name not in app.config['FILENAME_FORMATS']:
+            raise KeyError("Invalid dataset requested")
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-    delta_30y_dataset = open_dataset_by_path(delta30y_path)
+    delta_30y_dataset = open_dataset(dataset_name, '30ygraph', var, msys, partition=partition)
     delta_30y_slice = delta_30y_dataset.sel(region=indexi).drop(
         [i for i in delta_30y_dataset.coords if i != 'time']).dropna('time')
 
@@ -248,7 +388,7 @@ def download_regional_30y(partition, index, var, month):
         delta_30y_slice = delta_30y_slice.sel(
             time=(delta_30y_slice.time.dt.month == monthnumber))
 
-    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals)
+    csv_data = _format_30y_slice_to_csv(delta_30y_slice, var, decimals, dataset_name)
     delta_30y_dataset.close()
     return Response(csv_data, mimetype='text/csv', headers={"Content-disposition": f"attachment; filename={var}.csv"})
 
@@ -332,9 +472,11 @@ def download_ahccd():
     encoding = {}
 
     for var in variables:
-        ds = xr.open_dataset(os.path.join(app.config['AHCCD_FOLDER'], var['filename']), mask_and_scale=False,
-                                decode_times=False)
-        ds['time'] = xr.decode_cf(ds).time
+        ds = xr.open_dataset(
+            os.path.join(app.config['AHCCD_FOLDER'].format(root=app.config['DATASETS_ROOT']), var['filename']),
+            mask_and_scale=False,
+            decode_times=False)
+        ds['time'] = xr.decode_cf(ds, drop_variables=ds.data_vars).time
         s = list(set(stations).intersection(set(ds['station'].values)))
         if s:
             ds = ds.sel(station=s)
@@ -366,11 +508,8 @@ def download_ahccd():
         ds = ds.assign_coords(lat=ds.lat, lon=ds.lon, station_name=ds.station_name, prov=ds.prov)
 
     if format == 'netcdf':
-        filename = os.path.join(app.config['TEMPDIR'], next(tempfile._get_candidate_names()))
-        ds.to_netcdf(filename, encoding=encoding, format='NETCDF4_CLASSIC')
-        f = open(filename, "rb")
-        os.unlink(filename)
-        return send_file(f, mimetype='application/x-netcdf4', as_attachment=True, attachment_filename='ahccd.nc')
+        f = output_netcdf(ds, encoding, 'NETCDF4_CLASSIC')
+        return send_file(f, mimetype='application/x-netcdf4', as_attachment=True, download_name='ahccd.nc')
 
     if format == 'csv':
         df = ds.to_dataframe()
