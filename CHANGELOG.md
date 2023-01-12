@@ -1,3 +1,6 @@
+2023-01-12.01
+  * Updated metadata for AHCCD netcdf download for better Finch compatibility
+
 2022-10-18.1
   * Added API online tests
   * Fix small bug with SPEI download
