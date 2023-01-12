@@ -1,3 +1,6 @@
+2023-01-09.1
+  * download-ahccd (csv): added sorting order and removed useless rows
+
 2022-10-18.1
   * Added API online tests
   * Fix small bug with SPEI download
