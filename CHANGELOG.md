@@ -1,3 +1,6 @@
+2023-01-12.01
+  * Updated metadata for AHCCD netcdf download for better Finch compatibility
+
 2023-01-09.1
   * download-ahccd (csv): added sorting order and removed useless rows
 
