@@ -3,13 +3,10 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
 
-from flask import Flask, send_file, request
+from flask import send_file, request
 
 import uuid
-
-SERVER_DOMAIN = "https://climatedata.ca/"
 
 
 def get_selenium_driver():
@@ -22,9 +19,15 @@ def get_selenium_driver():
     return webdriver.Chrome('/bin/chromedriver', options=chrome_options)
 
 
-def get_explore_variable_raster(climate_data_map_url, output_img_path):
+def get_explore_variable_raster(url, output_img_path):
+    """
+        Raster the "explore location" chart.
+        ex: curl 'http://localhost:5000/raster?url=https://climatedata.ca/explore/variable/?coords=62.51231793838694,-98.525390625,4&delta=&geo-select=&var=tx_max&var-group=temperature&mora=ann&rcp=rcp85&decade=1970s&sector= > output.png'
+        :param url: URL to raster
+        :param output_img_path: output path of the raster
+    """
     driver = get_selenium_driver()
-    driver.get(climate_data_map_url)
+    driver.get(url)
 
     try:
         WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.TAG_NAME, "body")))
@@ -39,9 +42,15 @@ def get_explore_variable_raster(climate_data_map_url, output_img_path):
         driver.quit()
 
 
-def get_explore_location_raster(climate_data_map_url, output_img_path):
+def get_explore_location_raster(url, output_img_path):
+    """
+        Raster the "explore location" chart.
+        ex: curl 'http://localhost:5000/raster?url=https://climatedata.ca/explore/location/?loc=EHHUN&location-select-temperature=tx_max > output.png'
+        :param url: URL to raster
+        :param output_img_path: output path of the raster
+    """
     driver = get_selenium_driver()
-    driver.get(climate_data_map_url)
+    driver.get(url)
 
     try:
         WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//*[@id='temperature-chart']/div[2]/div[2]")))
@@ -55,23 +64,22 @@ def get_explore_location_raster(climate_data_map_url, output_img_path):
         driver.quit()
 
 
-def get_raster_route(path):
-    request_full_path = request.full_path
-    request_args_str = ""
-
-    if len(request_full_path.split("?")) > 1:
-        request_args_str = request_full_path.split("?")[1]
-
-    server_url = SERVER_DOMAIN + path + "?" + request_args_str
+def get_raster_route():
+    """
+        Dispatch raster action to handler functions.
+        See handler functions for usage.
+        :return: response containing the output image
+    """
+    url = request.args.get('url')
     output_img_path = "/tmp/" + str(uuid.uuid4()) + ".png"
 
-    if len(path) < 10:
-        return "Please provide URL."
+    if url is None:
+        return "Please provide a valid `url` query parameter."
     
-    if "/explore/variable" in server_url:
-        get_explore_variable_raster(server_url, output_img_path)
-    elif "/explore/location" in server_url:
-        get_explore_location_raster(server_url, output_img_path)
+    if "/explore/variable" in url:
+        get_explore_variable_raster(url, output_img_path)
+    elif "/explore/location" in url:
+        get_explore_location_raster(url, output_img_path)
     else:
         return "Undefined raster handler for URL."
         

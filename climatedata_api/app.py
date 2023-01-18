@@ -55,8 +55,7 @@ app.add_url_rule('/get_location_values_allyears.php', view_func=get_location_val
 app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_values)
 
 # raster routes
-app.add_url_rule('/raster/', defaults={"path": ""}, view_func=get_raster_route)
-app.add_url_rule('/raster/<path:path>', view_func=get_raster_route)
+app.add_url_rule('/raster', view_func=get_raster_route)
 
 @app.route('/status')
 def check_status():
