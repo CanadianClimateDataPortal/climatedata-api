@@ -5,9 +5,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
 from flask import send_file, request
+from flask import current_app as app
 
 import uuid
+import validators
 
+from urllib.parse import urlparse
 
 def get_selenium_driver():
     chrome_options = Options()
@@ -22,7 +25,7 @@ def get_selenium_driver():
 def get_explore_variable_raster(url, output_img_path):
     """
         Raster the "explore location" chart.
-        ex: curl 'http://localhost:5000/raster?url=https://climatedata.ca/explore/variable/?coords=62.51231793838694,-98.525390625,4&delta=&geo-select=&var=tx_max&var-group=temperature&mora=ann&rcp=rcp85&decade=1970s&sector= > output.png'
+        ex: curl 'http://localhost:5000/raster?url=https://climatedata.ca/explore/variable/?coords=62.51231793838694,-98.525390625,4&delta=&geo-select=&var=tx_max&var-group=temperature&mora=ann&rcp=rcp85&decade=1970s&sector=' > output.png
         :param url: URL to raster
         :param output_img_path: output path of the raster
     """
@@ -45,7 +48,7 @@ def get_explore_variable_raster(url, output_img_path):
 def get_explore_location_raster(url, output_img_path):
     """
         Raster the "explore location" chart.
-        ex: curl 'http://localhost:5000/raster?url=https://climatedata.ca/explore/location/?loc=EHHUN&location-select-temperature=tx_max > output.png'
+        ex: curl 'http://localhost:5000/raster?url=https://climatedata.ca/explore/location/?loc=EHHUN&location-select-temperature=tx_max' > output.png
         :param url: URL to raster
         :param output_img_path: output path of the raster
     """
@@ -58,7 +61,6 @@ def get_explore_location_raster(url, output_img_path):
         driver.execute_script("return document.getElementsByClassName('chart-tour-trigger')[0].remove();")
         driver.execute_script("return document.getElementsByClassName('highcharts-exporting-group')[0].remove();")
 
-        # TODO : make sure we select the right chart index
         driver.find_elements(By.CLASS_NAME, "var-chart")[0].screenshot(output_img_path)
     finally:
         driver.quit()
@@ -71,10 +73,15 @@ def get_raster_route():
         :return: response containing the output image
     """
     url = request.args.get('url')
-    output_img_path = "/tmp/" + str(uuid.uuid4()) + ".png"
+    domain = urlparse(url).netloc
 
-    if url is None:
-        return "Please provide a valid `url` query parameter."
+    # make sure the URL param is trustworthy
+    if not validators.url(url):
+        return "Please provide a valid `url` query parameter.", 400
+    if domain not in app.config['ALLOWED_DOMAINS']:
+        return "Please provide a trusted `url` query parameter.", 400
+
+    output_img_path = "/tmp/" + str(uuid.uuid4()) + ".png"
     
     if "/explore/variable" in url:
         get_explore_variable_raster(url, output_img_path)

@@ -189,3 +189,10 @@ SYSTEM_CHECKS = [
              "&bbox=-10331840.239250705%2C7200979.560689886%2C-10018754.171394622%2C7514065.628545967&i=33&j=33"),
      'validator': json.loads}
 ]
+
+ALLOWED_DOMAINS = [
+    "localhost:80",
+    "localhost:5000",
+    "climatedata.ca",
+    "climatedata.crim.ca"
+]
