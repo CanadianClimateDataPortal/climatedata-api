@@ -14,6 +14,7 @@ from climatedata_api.map import (get_choro_values,
                                  get_slr_gridded_values)
 from climatedata_api.siteinfo import (get_location_values,
                                       get_location_values_allyears)
+from climatedata_api.raster import get_raster_route
 
 pd.set_option('display.max_rows', 10000)
 xr.set_options(keep_attrs=True)
@@ -53,6 +54,9 @@ app.add_url_rule('/download-regional-30y/<partition>/<index>/<var>/<month>', vie
 app.add_url_rule('/get_location_values_allyears.php', view_func=get_location_values_allyears)
 app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_values)
 
+# raster routes
+app.add_url_rule('/raster/', defaults={"path": ""}, view_func=get_raster_route)
+app.add_url_rule('/raster/<path:path>', view_func=get_raster_route)
 
 @app.route('/status')
 def check_status():
