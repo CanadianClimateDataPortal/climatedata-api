@@ -1,3 +1,6 @@
+import base64
+import functools
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,12 +15,13 @@ import validators
 
 from urllib.parse import urlparse
 
+
 def get_selenium_driver():
     chrome_options = Options()
     chrome_options.headless = True
     chrome_options.add_argument("--window-size=2560,1440")
     chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage') # /dev/shm can be too small within docker
+    chrome_options.add_argument('--disable-dev-shm-usage')  # /dev/shm can be too small within docker
 
     return webdriver.Chrome('/bin/chromedriver', options=chrome_options)
 
@@ -66,16 +70,28 @@ def get_explore_location_raster(url, output_img_path):
         driver.quit()
 
 
+def calculate_hash(s):
+    def _calculate_hash(a, b):
+        a = ((a << 5) - a) + ord(b)
+        return a & 0xffffffff
+    return functools.reduce(_calculate_hash, s, 0)
+
+
 def get_raster_route():
     """
         Dispatch raster action to handler functions.
         See handler functions for usage.
         :return: response containing the output image
     """
-    url = request.args.get('url')
+    encoded = request.args.get('url')
+    url, request_hash = base64.b64decode(encoded).decode('utf-8').split("|")
+    request_hash = int(request_hash)
+    computed_hash = calculate_hash(url + app.config['SALT'])
     domain = urlparse(url).netloc
 
     # make sure the URL param is trustworthy
+    if request_hash != computed_hash:
+        return "Invalid request", 400
     if not validators.url(url):
         return "Please provide a valid `url` query parameter.", 400
     if domain not in app.config['ALLOWED_DOMAINS']:
@@ -90,4 +106,4 @@ def get_raster_route():
     else:
         return "Undefined raster handler for URL."
         
-    return send_file(output_img_path, mimetype='image/png')
+    return send_file(output_img_path, mimetype='image/png', as_attachment=True, download_name='climatedata.ca export.png')

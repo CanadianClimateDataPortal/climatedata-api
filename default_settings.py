@@ -171,7 +171,7 @@ AHCCD_ORDER = AHCCD_METADATA_COLUMNS + AHCCD_VALUES_COLUMNS
 
 CSV_COLUMNS_ORDER = ['time', 'lat', 'lon']
 
-SYSTEM_CHECKS_HOST = "http://localhost:5000"
+SYSTEM_CHECKS_HOST = "http://localhost"
 SYSTEM_CHECKS = [
     {'name': 'generate-charts',
      'URL': "{}/generate-charts/45.5833333/-73.75/frost_days/ann",
@@ -196,3 +196,5 @@ ALLOWED_DOMAINS = [
     "climatedata.ca",
     "climatedata.crim.ca"
 ]
+
+SALT = "override-me"
