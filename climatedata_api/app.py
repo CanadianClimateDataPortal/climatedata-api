@@ -1,6 +1,7 @@
 import pandas as pd
 import requests
 import sentry_sdk
+from werkzeug.exceptions import BadRequest
 import xarray as xr
 from flask import Flask
 from sentry_sdk.integrations.flask import FlaskIntegration
@@ -56,6 +57,12 @@ app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_valu
 
 # raster routes
 app.add_url_rule('/raster', view_func=get_raster_route)
+
+
+@app.errorhandler(BadRequest)
+def handle_bad_request(e):
+    return f"Bad request: {e.description}", 400
+
 
 @app.route('/status')
 def check_status():

@@ -9,7 +9,10 @@ function hashCode(s) {
 function encodeURL(url, salt) {
     let hash = hashCode(url + salt );
     let encoded = encodeURIComponent(btoa(url + '|' + hash));
-    return encoded;
+    return {
+        'encoded': encoded,
+        'hash': hash
+    };
 }
 
 
@@ -17,6 +20,8 @@ $(document).ready(function() {
     $("button").click(function() {
         let url = $("#url").val();
         let salt = $("#salt").val();
-        $("#result").val(encodeURL(url, salt));
+        let encoded = encodeURL(url, salt);
+        $("#result").val(encoded.encoded);
+        $("#hash").val(encoded.hash);
     });
 });
