@@ -37,7 +37,7 @@ def get_explore_variable_raster(url, output_img_path):
 
         ex: To raster the following URL: https://climatedata.crim.ca/explore/variable/?coords=62.5325943454858,-98.48144531250001,4&delta=&dataset=cmip6&geo-select=&var=ice_days&var-group=other&mora=ann&rcp=ssp585&decade=1970s&sector=
             curl 'http://localhost:5000/raster?url=aHR0cHM6Ly9jbGltYXRlZGF0YS5jcmltLmNhL2V4cGxvcmUvdmFyaWFibGUvP2Nvb3Jkcz02Mi41MzI1OTQzNDU0ODU4LC05OC40ODE0NDUzMTI1MDAwMSw0JmRlbHRhPSZkYXRhc2V0PWNtaXA2Jmdlby1zZWxlY3Q9JnZhcj1pY2VfZGF5cyZ2YXItZ3JvdXA9b3RoZXImbW9yYT1hbm4mcmNwPXNzcDU4NSZkZWNhZGU9MTk3MHMmc2VjdG9yPXw3NDIyMTkyNjU%3D' > output.png
-        :param url: encoded URL to raster
+        :param url: URL to raster
         :param output_img_path: output path of the raster
     """
     driver = get_selenium_driver()
@@ -94,14 +94,14 @@ def calculate_hash(s):
         return functools.reduce(_calculate_hash, s, np.int32(0))
 
 
-def decode_and_validate_url(encoded):
+def decode_and_validate_url(encoded_url):
     """
         Decode and validate encoded URL (format: "URL|hashcode")
-        :param: encoded: Encoded URL
+        :param: encoded_url: Encoded URL
         :return: decoded URL
     """
     try:
-        url, request_hash = base64.b64decode(encoded).decode('utf-8').split("|")
+        url, request_hash = base64.b64decode(encoded_url).decode('utf-8').split("|")
         request_hash = int(request_hash)
         computed_hash = calculate_hash(url + app.config['SALT'])
     except Exception as e:
@@ -119,8 +119,8 @@ def get_raster_route():
         See handler functions for usage.
         :return: response containing the output image
     """
-    encoded = request.args.get('url')
-    url = decode_and_validate_url(encoded)
+    encoded_url = request.args.get('url')
+    url = decode_and_validate_url(encoded_url)
     parsed_url = urlparse(url)
 
     # make sure the URL param is trustworthy
