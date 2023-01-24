@@ -1,6 +1,7 @@
 import pandas as pd
 import requests
 import sentry_sdk
+from werkzeug.exceptions import BadRequest
 import xarray as xr
 from flask import Flask
 from sentry_sdk.integrations.flask import FlaskIntegration
@@ -14,6 +15,7 @@ from climatedata_api.map import (get_choro_values,
                                  get_slr_gridded_values)
 from climatedata_api.siteinfo import (get_location_values,
                                       get_location_values_allyears)
+from climatedata_api.raster import get_raster_route
 
 pd.set_option('display.max_rows', 10000)
 xr.set_options(keep_attrs=True)
@@ -52,6 +54,14 @@ app.add_url_rule('/download-regional-30y/<partition>/<index>/<var>/<month>', vie
 # various site information
 app.add_url_rule('/get_location_values_allyears.php', view_func=get_location_values_allyears)
 app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_values)
+
+# raster routes
+app.add_url_rule('/raster', view_func=get_raster_route)
+
+
+@app.errorhandler(BadRequest)
+def handle_bad_request(e):
+    return f"Bad request: {e.description}", 400
 
 
 @app.route('/status')
