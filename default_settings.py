@@ -42,8 +42,11 @@ SCENARIOS = {'CMIP5': ['rcp26', 'rcp45', 'rcp85'],
 DELTA_NAMING = {'CMIP5': 'delta7100',
                 'CMIP6': 'delta_1971_2000'}
 
-HISTORICAL_DATE_LIMIT_BEFORE = '2005-12-31'
-HISTORICAL_DATE_LIMIT_AFTER = '2005-01-01'
+HISTORICAL_DATE_LIMIT_BEFORE = {'CMIP5': '2005-12-31',
+                                'CMIP6': '2014-12-31'}
+HISTORICAL_DATE_LIMIT_AFTER = {'CMIP5': '2005-01-01',
+                               'CMIP6': '2014-01-01'}
+
 SPEI_DATE_LIMIT = '1950-01-01'
 KELVIN_TO_C = -273.15
 DOWNLOAD_POINTS_LIMIT = 1000
@@ -189,3 +192,12 @@ SYSTEM_CHECKS = [
              "&bbox=-10331840.239250705%2C7200979.560689886%2C-10018754.171394622%2C7514065.628545967&i=33&j=33"),
      'validator': json.loads}
 ]
+
+ALLOWED_DOMAINS = [
+    "localhost:80",
+    "localhost:5000",
+    "climatedata.ca",
+    "climatedata.crim.ca"
+]
+
+SALT = "override-me"

@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  climatedata-api:
+    image: registry.gitlab.com/crim.ca/clients/ccdp/docker/api:latest
+    build: ./
+    volumes:
+      - ./:/climatedata-api:ro
+      - ./datasets:/climatedata-api/datasets:ro
+    working_dir: /climatedata-api
+    environment:
+      CLIMATEDATA_FLASK_SETTINGS: local_settings.py
+      FLASK_DEBUG: 1
+    restart: always
+    command: flask run -h 0.0.0.0
+    ports:
+      - "5000:5000"
