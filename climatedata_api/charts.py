@@ -26,7 +26,7 @@ def _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_
 
     # we return the historical values for a single scenario before HISTORICAL_DATE_LIMIT
     bccaq_location_slice_historical = bccaq_location_slice.where(
-        bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
+        bccaq_location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE'][dataset_name]), drop=True)
     chart_series['modeled_historical_median'] = convert_time_series_dataset_to_list(
         bccaq_location_slice_historical[f'{scenarios[0]}_{var}_p50'], decimals)
     chart_series['modeled_historical_range'] = convert_time_series_dataset_to_list(
@@ -34,7 +34,7 @@ def _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_
                   bccaq_location_slice_historical[f'{scenarios[0]}_{var}_p90']]), decimals)
     # we return values in historical for all scenarios after HISTORICAL_DATE_LIMIT
     bccaq_location_slice = bccaq_location_slice.where(
-        bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
+        bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER'][dataset_name]), drop=True)
 
     for scenario in scenarios:
         chart_series[scenario + '_median'] = convert_time_series_dataset_to_list(
@@ -140,7 +140,7 @@ def generate_spei_charts(var, lati, loni, month, decimals):
 
     # we return the historical values for a single scenario before HISTORICAL_DATE_LIMIT
     location_slice_historical = location_slice.where(
-        location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']), drop=True)
+        location_slice.time <= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_BEFORE']['CMIP5']), drop=True)
     location_slice_historical = location_slice_historical.where(
         location_slice.time >= np.datetime64(app.config['SPEI_DATE_LIMIT']), drop=True)
     chart_series['modeled_historical_median'] = convert_time_series_dataset_to_list(
@@ -150,7 +150,7 @@ def generate_spei_charts(var, lati, loni, month, decimals):
                   location_slice_historical['rcp26_spei_p90']]), decimals)
     # we return values in historical for all scenarios after HISTORICAL_DATE_LIMIT
     location_slice = location_slice.where(
-        location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']), drop=True)
+        location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER']['CMIP5']), drop=True)
 
     for scenario in app.config['SCENARIOS']['CMIP5']:
         chart_series[scenario + '_median'] = convert_time_series_dataset_to_list(
