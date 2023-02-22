@@ -1,3 +1,6 @@
+2023-02-22.01
+  * Added /get-gids/ api call to get matching feature id from a list of points
+
 2023-01-12.01
   * Updated metadata for AHCCD netcdf download for better Finch compatibility
 

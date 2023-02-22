@@ -7,3 +7,4 @@ local_settings.py
 venv
 datasets
 .pytest_cache
+cache
