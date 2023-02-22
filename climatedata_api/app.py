@@ -12,10 +12,12 @@ from climatedata_api.download import (download, download_30y, download_ahccd,
 from climatedata_api.map import (get_choro_values,
                                  get_delta_30y_gridded_values,
                                  get_delta_30y_regional_values,
-                                 get_slr_gridded_values)
+                                 get_slr_gridded_values,
+                                 get_id_list_from_points)
 from climatedata_api.siteinfo import (get_location_values,
                                       get_location_values_allyears)
 from climatedata_api.raster import get_raster_route
+from climatedata_api.utils import generate_kdtrees
 
 pd.set_option('display.max_rows', 10000)
 xr.set_options(keep_attrs=True)
@@ -44,6 +46,7 @@ app.add_url_rule('/get-delta-30y-gridded-values/<lat>/<lon>/<var>/<month>', view
 app.add_url_rule('/get-slr-gridded-values/<lat>/<lon>', view_func=get_slr_gridded_values)
 app.add_url_rule('/get-delta-30y-regional-values/<partition>/<index>/<var>/<month>',
                  view_func=get_delta_30y_regional_values)
+app.add_url_rule('/get-gids/<compressed_points>', view_func=get_id_list_from_points)
 
 # download routes
 app.add_url_rule('/download', view_func=download, methods=['POST'])
@@ -84,3 +87,8 @@ def check_status():
             else:
                 return f"Test {check['name']} failed.<br> Message: {ex}", 500
     return "All checks successful", 200
+
+
+@app.cli.command("generate-kdtrees")
+def cli_generate_kdtrees():
+    generate_kdtrees()

@@ -8,6 +8,7 @@ SENTRY_ENV = "dev"
 TEMPDIR = "/tmp"
 
 DATASETS_ROOT = Path("./datasets")
+CACHE_FOLDER = Path("./cache")
 
 FILENAME_FORMATS = {
     'ANUSPLIN_v1': {
@@ -29,6 +30,9 @@ FILENAME_FORMATS = {
         '30ygraph': "{var}_{freq}_BCCAQ2v2+ANUSPLIN300_historical+allssps_1950-2100_30yGraph_percentiles{period}.nc"
     }
 }
+
+GRIDS = {'canadagrid': 'shapefiles/canadagrid/canadagrid.shp',
+         '1degreegrid': 'shapefiles/1degreegrid/1degreegrid.shp'}
 
 NETCDF_SPEI_FILENAME_FORMATS = "{root}/SPEI/{var}/SPEI_ensemble_percentiles_allrcps_MON_1900_2100_{var}.nc"
 NETCDF_SPEI_OBSERVED_FILENAME_FORMATS = "{root}/SPEI/{var}/CCRC_CANGRD_MON_1900_2014_spei_bc_ref_period_195001_200512_timev_{var}.nc"

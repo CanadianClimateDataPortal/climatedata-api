@@ -5,7 +5,10 @@ from flask import current_app as app
 from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
 
-from climatedata_api.utils import open_dataset, open_dataset_by_path
+from climatedata_api.utils import open_dataset, open_dataset_by_path, decode_compressed_points
+import pickle
+import numpy as np
+from sentry_sdk import capture_message
 
 
 def get_choro_values(partition, var, scenario, month='ann'):
@@ -164,3 +167,32 @@ def get_delta_30y_regional_values(partition, index, var, month):
     delta_30y_slice = delta_30y_dataset.sel(region=indexi).sel(time=f"{period}-{monthnumber}-01")
 
     return _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals, dataset_name)
+
+
+def get_id_list_from_points(compressed_points):
+    """
+    Return feature unique id (gid) that matches all points provided in request
+    curl 'http://localhost:5000/get-gids/-stivPu3IqgC0-J91gBs_RxxxCq8Dl5I41gBiv6Bv3ctqH75E16yBztY0vNt3KprlB70D?gridname=canadagrid'
+
+    """
+    try:
+        gridname = request.args.get('gridname')
+        kdfile = app.config['CACHE_FOLDER'] / f"kdtree-{gridname}.pickle"
+        points = decode_compressed_points(compressed_points)
+
+    except KeyError:
+        return "Bad request", 400
+    points_to_search = np.array(points)
+
+    with kdfile.open('rb') as f:
+        tree = pickle.load(f)
+    distances, gids = tree.query(points_to_search, distance_upper_bound=1.0)
+
+    # verify that all points got a match. If this happens, it will be frontend's fault, so we capture a message to Sentry
+    for dist in distances:
+        if dist == np.inf:
+            print("Unmatched point found")
+            capture_message(f"get_id_list_from_points: unmatched point found. Query is: {compressed_points}")
+            break
+
+    return gids.tolist()
