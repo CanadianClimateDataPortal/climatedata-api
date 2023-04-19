@@ -201,7 +201,7 @@ ALLOWED_DOMAINS = [
     "localhost:80",
     "localhost:5000",
     "climatedata.ca",
-    "climatedata.crim.ca"
+    "donneesclimatiques.ca"
 ]
 
 SALT = "override-me"
