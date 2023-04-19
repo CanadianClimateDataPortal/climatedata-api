@@ -131,10 +131,10 @@ def get_raster_route():
 
     output_img_path = "/tmp/" + str(uuid.uuid4()) + ".png"
     
-    if "/explore/variable" in url:
+    if "/explore/variable" in url or "/explorer/variable" in url:
         get_explore_variable_raster(url, output_img_path)
         page_name = "variable"
-    elif "/explore/location" in url:
+    elif "/explore/location" in url or "/explorer/emplacement" in url:
         get_explore_location_raster(url, output_img_path)
         page_name = "location"
     else:

@@ -188,7 +188,7 @@ def get_id_list_from_points(compressed_points):
         tree = pickle.load(f)
     distances, gids = tree.query(points_to_search, distance_upper_bound=1.0)
 
-    # verify that all points got a match. If this happens, it will be frontend's fault, so we capture a message to Sentry
+    # verify that all points got a match. If a point doesn't have a match then there is a frontend issue, so we capture a message to Sentry
     for dist in distances:
         if dist == np.inf:
             print("Unmatched point found")
