@@ -26,6 +26,8 @@ def _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_
             anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
 
         chart_series['observations'] = convert_time_series_dataset_to_list(anusplin_location_slice, decimals)
+    else:
+        chart_series['observations'] = []
 
     # we return the historical values for a single scenario before HISTORICAL_DATE_LIMIT
     bccaq_location_slice_historical = bccaq_location_slice.where(
