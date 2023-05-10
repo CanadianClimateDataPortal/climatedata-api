@@ -93,7 +93,10 @@ VARIABLES = ['cdd',
              'tx_mean',
              'slr',
              'spei_3m',
-             'spei_12m']
+             'spei_12m',
+             'HXmax30',
+             'HXmax35',
+             'HXmax40']
 
 SPEI_VARIABLES = ['spei_3m', 'spei_12m']
 
