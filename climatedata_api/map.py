@@ -30,6 +30,7 @@ def get_choro_values(partition, var, scenario, month='ann'):
             raise ValueError
         period = int(request.args['period'])
         delta7100 = request.args.get('delta7100', 'false')
+        decimals = int(request.args.get('decimals', 2))
     except (TypeError, ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
@@ -41,7 +42,7 @@ def get_choro_values(partition, var, scenario, month='ann'):
     return Response(json.dumps(bccaq_time_slice[f"{scenario}_{var}{delta}_p50"]
                                .drop([i for i in bccaq_time_slice.coords if i != 'region']).to_dataframe().astype(
         'float64')
-        .round(2).fillna(0).transpose().values.tolist()[0]),
+        .round(decimals).fillna(0).transpose().values.tolist()[0]),
         mimetype='application/json')
 
 
