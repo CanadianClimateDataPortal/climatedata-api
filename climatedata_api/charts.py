@@ -19,10 +19,15 @@ def _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_
     if bccaq_location_slice[f'{scenarios[0]}_{var}_p50'].attrs.get('units') == 'K':
         bccaq_location_slice = bccaq_location_slice + app.config['KELVIN_TO_C']
 
-    if anusplin_location_slice[var].attrs.get('units') == 'K':
-        anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
+    chart_series = {}
 
-    chart_series = {'observations': convert_time_series_dataset_to_list(anusplin_location_slice, decimals)}
+    if anusplin_location_slice:
+        if anusplin_location_slice[var].attrs.get('units') == 'K':
+            anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
+
+        chart_series['observations'] = convert_time_series_dataset_to_list(anusplin_location_slice, decimals)
+    else:
+        chart_series['observations'] = []
 
     # we return the historical values for a single scenario before HISTORICAL_DATE_LIMIT
     bccaq_location_slice_historical = bccaq_location_slice.where(
@@ -93,10 +98,15 @@ def generate_charts(var, lat, lon, month='ann'):
     if var == 'slr':
         return generate_slr_charts(lati, loni)
 
-    anusplin_dataset = open_dataset('ANUSPLIN_v1', 'allyears', var, msys, monthpath)
-    anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna(
-        'time')
-    anusplin_location_slice = anusplin_location_slice.sel(time=(anusplin_location_slice.time.dt.month == monthnumber))
+    try:
+        anusplin_dataset = open_dataset('ANUSPLIN_v1', 'allyears', var, msys, monthpath)
+        anusplin_location_slice = anusplin_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna(
+            'time')
+        anusplin_location_slice = anusplin_location_slice.sel(time=(anusplin_location_slice.time.dt.month == monthnumber))
+    except FileNotFoundError:
+        # Anusplin doesn't exist for some variable, ex: HXMax
+        anusplin_location_slice = None
+        anusplin_dataset = None
 
     bccaq_dataset = open_dataset(dataset_name, 'allyears', var, msys, monthpath)
     bccaq_location_slice = bccaq_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
@@ -108,7 +118,8 @@ def generate_charts(var, lat, lon, month='ann'):
     chart_series = _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_slice, delta_30y_slice,
                                                        var, decimals, dataset_name)
     bccaq_dataset.close()
-    anusplin_dataset.close()
+    if anusplin_dataset:
+        anusplin_dataset.close()
     delta_30y_dataset.close()
     return chart_series
 
@@ -209,9 +220,13 @@ def generate_regional_charts(partition, index, var, month='ann'):
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-    anusplin_dataset = open_dataset('ANUSPLIN_v1', 'allyears', var, msys, partition=partition)
-    anusplin_location_slice = anusplin_dataset.sel(region=indexi).drop(
-        [i for i in anusplin_dataset.coords if i != 'time']).dropna('time')
+    try:
+        anusplin_dataset = open_dataset('ANUSPLIN_v1', 'allyears', var, msys, partition=partition)
+        anusplin_location_slice = anusplin_dataset.sel(region=indexi).drop(
+            [i for i in anusplin_dataset.coords if i != 'time']).dropna('time')
+    except FileNotFoundError:
+        anusplin_dataset = None
+        anusplin_location_slice = None
 
     bccaq_dataset = open_dataset(dataset_name, 'allyears', var, msys, partition=partition)
     bccaq_location_slice = bccaq_dataset.sel(region=indexi).drop(
@@ -224,14 +239,16 @@ def generate_regional_charts(partition, index, var, month='ann'):
     # we filter the appropriate month/season from the MS or QS-DEC file
     if msys in ["MS", "QS-DEC"]:
         bccaq_location_slice = bccaq_location_slice.sel(time=(bccaq_location_slice.time.dt.month == monthnumber))
-        anusplin_location_slice = anusplin_location_slice.sel(
-            time=(anusplin_location_slice.time.dt.month == monthnumber))
+        if anusplin_location_slice:
+            anusplin_location_slice = anusplin_location_slice.sel(
+                time=(anusplin_location_slice.time.dt.month == monthnumber))
         delta_30y_slice = delta_30y_slice.sel(
             time=(delta_30y_slice.time.dt.month == monthnumber))
 
     chart_series = _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_slice, delta_30y_slice,
                                                        var, decimals, dataset_name)
     bccaq_dataset.close()
-    anusplin_dataset.close()
+    if anusplin_dataset:
+        anusplin_dataset.close()
     delta_30y_dataset.close()
     return chart_series
