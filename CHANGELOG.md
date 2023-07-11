@@ -1,3 +1,6 @@
+2023-06-01.01
+  * Added support for Humidex indices
+
 2023-02-22.01
   * Added /get-gids/ api call to get matching feature id from a list of points
 
