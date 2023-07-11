@@ -1,3 +1,6 @@
+2023-07-11.01
+  * Added dataset\_type parameter to /download route
+
 2023-06-01.01
   * Added support for Humidex indices
 
