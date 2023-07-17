@@ -1,3 +1,6 @@
+2023-07-17.01
+  * Added 30y averages to anusplin dataset
+
 2023-06-01.01
   * Added support for Humidex indices
 
