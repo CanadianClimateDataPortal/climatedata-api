@@ -25,9 +25,17 @@ def _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_
         if anusplin_location_slice[var].attrs.get('units') == 'K':
             anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
 
+        anusplin_location_slice_30y = anusplin_location_slice.rolling({'time': 30}).mean().dropna('time')
+        anusplin_location_slice_30y['time'] = anusplin_location_slice.time[0:len(anusplin_location_slice_30y.time)]
+        anusplin_location_slice_30y = anusplin_location_slice_30y.sel(time=(anusplin_location_slice_30y.time.dt.year % 10 == 1))
+
         chart_series['observations'] = convert_time_series_dataset_to_list(anusplin_location_slice, decimals)
+        chart_series['30y_observations'] = convert_time_series_dataset_to_dict(anusplin_location_slice_30y, decimals)
+
     else:
         chart_series['observations'] = []
+        chart_series['30y_observations'] = []
+
 
     # we return the historical values for a single scenario before HISTORICAL_DATE_LIMIT
     bccaq_location_slice_historical = bccaq_location_slice.where(
