@@ -135,6 +135,15 @@ def download():
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
 
+        CSV format (CMIP6, 30ygraph):
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "csv",
+          "dataset_name": "CMIP6",
+          "dataset_type": "30ygraph",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
 
         Netcdf Format
         curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
@@ -148,6 +157,15 @@ def download():
           "month" : "jan",
           "format" : "netcdf",
           "dataset_name": "CMIP6",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
+        Netcdf Format (CMIP6, 30ygraph)
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "netcdf",
+          "dataset_name": "CMIP6",
+          "dataset_type": "30ygraph",
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
 
@@ -195,6 +213,7 @@ def download():
         points = args.get('points', None)
         bbox = args.get('bbox', None)
         dataset_name = args.get('dataset_name', 'CMIP5').upper()
+        dataset_type = args.get('dataset_type', 'allyears')
 
         decimals = int(args.get('decimals', 2))
         if decimals < 0:
@@ -205,6 +224,9 @@ def download():
 
         if dataset_name not in app.config['FILENAME_FORMATS']:
             raise KeyError("Invalid dataset requested")
+
+        if dataset_type not in app.config['FILENAME_FORMATS'][dataset_name]:
+            raise KeyError("Invalid dataset type requested")
 
         if points and bbox:
             return "Bad request: can't request both points and bbox simultaneously", 400
@@ -244,9 +266,9 @@ def download():
         limit = app.config['SPEI_DATE_LIMIT']
     else:
         if month == 'all':
-            datasets = [open_dataset(dataset_name, 'allyears', var, freq, m) for m in app.config['ALLMONTHS']]
+            datasets = [open_dataset(dataset_name, dataset_type, var, freq, m) for m in app.config['ALLMONTHS']]
         else:
-            datasets = [open_dataset(dataset_name, 'allyears', var, freq, monthpath)]
+            datasets = [open_dataset(dataset_name, dataset_type, var, freq, monthpath)]
 
     if var not in app.config['SPEI_VARIABLES'] and datasets[0][f'{scenarios[0]}_{var}_p50'].attrs.get('units') == 'K':
         adjust = app.config['KELVIN_TO_C']
