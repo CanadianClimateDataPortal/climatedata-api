@@ -40,7 +40,8 @@ def get_subset(dataset, point, adjust, limit=None):
     else:
         raise ValueError("point argument must be of length 2 or 4")
     if adjust:
-        ds = ds + adjust
+        for v in [v for v in ds.data_vars if 'delta' not in v]:
+            ds[v] = ds[v] + adjust
     if limit:
         ds = ds.where(ds.time >= np.datetime64(limit), drop=True)
     return ds
