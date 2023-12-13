@@ -8,3 +8,4 @@ venv
 datasets
 .pytest_cache
 cache
+*.zip
