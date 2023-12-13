@@ -359,7 +359,7 @@ def download():
         if zipped:
             zip_buffer = make_zip([
                 ('metadata.txt', metadata),
-                ('data.json', response_data),
+                (f'{var}.json', response_data),
             ])
             return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'{var}.zip')
         else:
