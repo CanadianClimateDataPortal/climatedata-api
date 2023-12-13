@@ -14,7 +14,7 @@ from flask import current_app as app
 from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
 
-from climatedata_api.utils import open_dataset, open_dataset_by_path
+from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path
 
 
 def float_format_dataframe(df, decimals):
@@ -120,6 +120,14 @@ def download():
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
 
+        JSON format (zipped):
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "json",
+          "zipped" : true,
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
         CSV format:
         curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
           "month" : "jan",
@@ -127,6 +135,16 @@ def download():
           "dataset_name": "CMIP5",
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
+
+        CSV format (zipped):
+        curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
+          "month" : "jan",
+          "format" : "csv",
+          "zipped" : true,
+          "dataset_name": "CMIP5",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
+        }'
+
 
         CSV format (CMIP6):
         curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
@@ -202,6 +220,7 @@ def download():
         var: variable to fetch
         month: frequency-sampling to fetch
         format: csv, json or nc
+        zipped: send the result as a zipfile  (valid for csv and json only, ignored for nc)
           points: array of [lat,lon] coordinates
         or
           bbox: bounding box coordinates: [min-lat, min-lon, max-lat, max-lon]
@@ -211,6 +230,7 @@ def download():
         var = args['var']
         month = args['month']
         output_format = args['format']
+        zipped = args.get('zipped', False)
         points = args.get('points', None)
         bbox = args.get('bbox', None)
         dataset_name = args.get('dataset_name', 'CMIP5').upper()
@@ -276,6 +296,8 @@ def download():
     else:
         adjust = 0
 
+    metadata = format_metadata(datasets[0])
+
     if points:
         subsetted_datasets = [[get_subset(dataset, p, adjust, limit) for dataset in datasets] for p in points]
     else:
@@ -314,20 +336,34 @@ def download():
                         sorted([c for c in concatenated_dfs if c not in app.config['CSV_COLUMNS_ORDER']])
         concatenated_dfs = concatenated_dfs.sort_values(by=['lat', 'lon', 'time'])
         float_format_dataframe(concatenated_dfs, decimals)
-        return Response(concatenated_dfs.to_csv(columns=columns_order),
-                        mimetype='text/csv')
+        response_data = concatenated_dfs.to_csv(columns=columns_order)
+        if zipped:
+            zip_buffer = make_zip([
+                ('metadata.txt', metadata),
+                (f'{var}.csv', response_data),
+            ])
+            return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'{var}.zip')
+        else:
+            return Response(response_data, mimetype='text/csv')
+
     if output_format == 'json':
         if points:
-            return Response("[" + ",".join(
+            response_data = "[" + ",".join(
                 map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month),
-                    dfs)) + "]",
-                            mimetype='application/json')
+                    dfs)) + "]"
         else:
             df_groups = [g[1].reset_index().set_index('time') for g in
                          pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).groupby(by=['lat', 'lon'])]
-            return Response("[" +
-                            ",".join(map(lambda df: output_json(df, var, freq, decimals, month), df_groups)) + "]",
-                            mimetype='application/json')
+            response_data = "[" + ",".join(map(lambda df: output_json(df, var, freq, decimals, month), df_groups)) + "]"
+
+        if zipped:
+            zip_buffer = make_zip([
+                ('metadata.txt', metadata),
+                (f'{var}.json', response_data),
+            ])
+            return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'{var}.zip')
+        else:
+            return Response(response_data, mimetype='application/json')
 
     # invalid/non-supported output format requested
     return "Bad request", 400
@@ -443,6 +479,8 @@ def download_ahccd():
         curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "stations": ["3034720","8402757"]}'
         # case with two stations (to check sorting)
         curl -s 'http://localhost:5000/download-ahccd?format=csv&stations=7042395,7047250'
+        # as zip
+        curl -s http://localhost:5000/download-ahccd -H "Content-Type: application/json" -X POST -d '{ "format" : "csv", "zipped" : "true", "stations": ["3034720","8402757"]}'
     """
     try:
         if request.method == 'POST':
@@ -453,6 +491,7 @@ def download_ahccd():
             stations = args['stations'].split(',')
 
         format = args['format']
+        zipped = args.get('zipped', False)
         variable_type_filter = args.get('variable_type_filter', "").upper()
         if len(stations) == 0:
             raise ValueError
@@ -541,8 +580,16 @@ def download_ahccd():
         df = df.replace('', np.nan).dropna(how='all', subset=[c for c in app.config['AHCCD_VALUES_COLUMNS'] if c in df.columns])
         df = df.reindex(columns=[c for c in app.config['AHCCD_ORDER'] if c in df.columns])
         df = df.sort_values(['station', 'time'])
-        return Response(df.to_csv(chunksize=100000),
-                        mimetype='text/csv',
-                        headers={"Content-disposition": "attachment; filename=ahccd.csv"})
+        response_data = df.to_csv(chunksize=100000)
+        if zipped:
+            zip_buffer = make_zip([
+                ('metadata.txt', format_metadata(ds)),
+                ('ahccd.csv', response_data)
+            ])
+            return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'ahccd.zip')
+        else:
+            return Response(response_data,
+                            mimetype='text/csv',
+                            headers={"Content-disposition": "attachment; filename=ahccd.csv"})
 
     return "Bad request", 400
