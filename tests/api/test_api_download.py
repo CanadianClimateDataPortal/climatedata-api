@@ -69,6 +69,23 @@ def test_api_download_get(url: str, status_code: int):
             {
                 "var": "tx_max",
                 "month": "jan",
+                "format": "json",
+                "zipped": True,
+                "points": [
+                    [45.6323041086555, -73.81242277462837],
+                    [45.62317816394269, -73.71014590931205],
+                    [45.62317725541931, -73.61542460410394],
+                    [45.71149235185937, -73.6250345109122],
+                ],
+            },
+            id="download_dataset_json_zipped",
+        ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            200,
+            {
+                "var": "tx_max",
+                "month": "jan",
                 "format": "csv",
                 "points": [
                     [45.6323041086555, -73.81242277462837],
@@ -112,6 +129,24 @@ def test_api_download_get(url: str, status_code: int):
                 ],
             },
             id="download_dataset_cmip6_csv",
+        ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            200,
+            {
+                "var": "tx_max",
+                "month": "jan",
+                "format": "csv",
+                "zipped": True,
+                "dataset_name": "CMIP6",
+                "points": [
+                    [45.6323041086555, -73.81242277462837],
+                    [45.62317816394269, -73.71014590931205],
+                    [45.62317725541931, -73.61542460410394],
+                    [45.71149235185937, -73.6250345109122],
+                ],
+            },
+            id="download_dataset_cmip6_csv_zipped",
         ),
         pytest.param(
             f"{TEST_HOST_URL}/download",
@@ -224,6 +259,12 @@ def test_api_download_get(url: str, status_code: int):
             200,
             {"format": "csv", "stations": ["3034720", "8402757"]},
             id="download_ahccd_station_one_precip_one_temp_csv",
+        ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download-ahccd",
+            200,
+            {"format": "csv", "zipped": True, "stations": ["3034720", "8402757"]},
+            id="download_ahccd_station_one_precip_one_temp_zipped_csv",
         ),
     ],
 )

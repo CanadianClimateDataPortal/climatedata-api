@@ -124,7 +124,7 @@ def download():
         curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
           "month" : "jan",
           "format" : "json",
-          "zipped" : "true",
+          "zipped" : true,
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
 
@@ -140,7 +140,7 @@ def download():
         curl  -s http://localhost:5000/download -H "Content-Type: application/json" -X POST -d '{ "var" : "tx_max",
           "month" : "jan",
           "format" : "csv",
-          "zipped" : "true",
+          "zipped" : true,
           "dataset_name": "CMIP5",
           "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]]
         }'
@@ -230,7 +230,7 @@ def download():
         var = args['var']
         month = args['month']
         output_format = args['format']
-        zipped = args.get('zipped', None)
+        zipped = args.get('zipped', False)
         points = args.get('points', None)
         bbox = args.get('bbox', None)
         dataset_name = args.get('dataset_name', 'CMIP5').upper()
@@ -491,7 +491,7 @@ def download_ahccd():
             stations = args['stations'].split(',')
 
         format = args['format']
-        zipped = args.get('zipped', None)
+        zipped = args.get('zipped', False)
         variable_type_filter = args.get('variable_type_filter', "").upper()
         if len(stations) == 0:
             raise ValueError
