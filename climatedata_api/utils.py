@@ -1,3 +1,4 @@
+import io
 import math
 import xarray as xr
 from flask import current_app as app
@@ -5,7 +6,7 @@ import geopandas as gpd
 from scipy.spatial import KDTree
 import pickle
 import numpy as np
-
+import zipfile
 
 def open_dataset(dataset_name, filetype, var, freq, period=None, partition=None):
     """
@@ -74,6 +75,39 @@ SAFE_CHARACTER_LUT = {c: idx for idx, c in enumerate(SAFE_CHARACTERS)}
 MULTIPLIER = 100
 DIVIDER = 32
 
+
+def format_metadata(ds) -> str:
+    """
+    For an xarray dataset, return its formatted metadata.
+    Source: https://github.com/bird-house/finch/blob/master/finch/processes/utils.py
+    Source is copied here because Finch has way too many dependencies we don't need
+    """
+
+    def _fmt_attrs(obj, name="", comment="# ", tab=" "):
+        """Return string of an object's attribute."""
+        lines = ["", name]
+        for key, val in obj.attrs.items():
+            lines.append(
+                tab + key + ":: " + str(val).replace("\n", "\n" + comment + tab + "  ")
+            )
+
+        out = ("\n" + comment + tab).join(lines)
+        return out
+
+    objs = [
+        ({"": ds}, "Global attributes"),
+        (ds.coords, "Coordinates"),
+        (ds.data_vars, "Data variables"),
+    ]
+
+    out = ""
+    for obj, name in objs:
+        out += "# " + name
+        tab = "" if name == "Global attributes" else "  "
+        for key, val in obj.items():
+            out += _fmt_attrs(val, key, tab=tab)
+        out += "\n#\n"
+    return out
 
 def decode_compressed_points(compressed_points):
     """
@@ -151,3 +185,17 @@ def generate_kdtrees():
         with tmpfile.open('wb') as f:
             pickle.dump(tree, f)
         tmpfile.rename(outfile)
+
+
+def make_zip(content):
+    """
+    Create an in-memory buffer of a zip file
+    @param content: Array of (filename, data) tuples
+    @return: a in-memory buffer of the Zipfile
+    """
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w') as zip_file:
+        for filename, data in content:
+            zip_file.writestr(filename, data, zipfile.ZIP_DEFLATED)
+    buffer.seek(0)
+    return buffer
