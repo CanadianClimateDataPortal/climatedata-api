@@ -314,6 +314,29 @@ def test_api_download_post(url: str, status_code: int, payload):
             },
             id="download_custom_filename_netcdf",
         ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            "tx_max.nc",
+            {
+                "var": "tx_max",
+                "month": "ann",
+                "format": "netcdf",
+                "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058],
+            },
+            id="download_standard_filename_netcdf",
+        ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            "tx_max.zip",
+            {
+                "var": "tx_max",
+                "month": "ann",
+                "format": "json",
+                "zipped": True,
+                "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058],
+            },
+            id="download_nozip_standard_filename_json",
+        ),
     ],
 )
 def test_api_download_post_custom_filename(url, expected_filename, payload):
