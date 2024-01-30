@@ -235,6 +235,7 @@ def download():
         bbox = args.get('bbox', None)
         dataset_name = args.get('dataset_name', 'CMIP5').upper()
         dataset_type = args.get('dataset_type', 'allyears')
+        custom_filename = args.get('custom_filename', None)
 
         decimals = int(args.get('decimals', 2))
         if decimals < 0:
@@ -303,6 +304,11 @@ def download():
     else:
         subsetted_datasets = [get_subset(dataset, bbox, adjust, limit) for dataset in datasets]
 
+    filename = var
+
+    if custom_filename:
+        filename = custom_filename
+
     if output_format == 'netcdf':
         if points:
             combined_ds = xr.combine_nested(subsetted_datasets, ['region', 'time'], combine_attrs='override').dropna(
@@ -316,7 +322,7 @@ def download():
                 combined_ds[v].attrs['units'] = 'degC'
             encodings[v] = {"zlib": True}
         f = output_netcdf(combined_ds, encodings, 'NETCDF4')
-        return send_file(f, mimetype='application/x-netcdf4')
+        return send_file(f, mimetype='application/x-netcdf4', download_name=f'{filename}.nc')
 
     if points:
         dfs = [[j.to_dataframe() for j in i] for i in subsetted_datasets]
@@ -340,9 +346,9 @@ def download():
         if zipped:
             zip_buffer = make_zip([
                 ('metadata.txt', metadata),
-                (f'{var}.csv', response_data),
+                (f'{filename}.csv', response_data),
             ])
-            return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'{var}.zip')
+            return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'{filename}.zip')
         else:
             return Response(response_data, mimetype='text/csv')
 
@@ -359,9 +365,9 @@ def download():
         if zipped:
             zip_buffer = make_zip([
                 ('metadata.txt', metadata),
-                (f'{var}.json', response_data),
+                (f'{filename}.json', response_data),
             ])
-            return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'{var}.zip')
+            return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'{filename}.zip')
         else:
             return Response(response_data, mimetype='application/json')
 
