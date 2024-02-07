@@ -34,7 +34,9 @@ def get_selenium_driver():
 def get_raster(url, output_img_path):
     """
         Raster the "explore location" chart.
-        Note: URL is encoded using tools/encoder.html
+        Notes: * URL is encoded using tools/encoder.html
+               * Web page must expose $.fn.prepare_raster() function that will prepare the DOM for raster
+                 and add the "to-raster" class to the DOM object that will be screenshoted.
 
         ex: To raster the following URL: https://climatedata.crim.ca/explore/variable/?coords=62.5325943454858,-98.48144531250001,4&delta=&dataset=cmip6&geo-select=&var=ice_days&var-group=other&mora=ann&rcp=ssp585&decade=1970s&sector=
             curl 'http://localhost:5000/raster?url=aHR0cHM6Ly9jbGltYXRlZGF0YS5jcmltLmNhL2V4cGxvcmUvdmFyaWFibGUvP2Nvb3Jkcz02Mi41MzI1OTQzNDU0ODU4LC05OC40ODE0NDUzMTI1MDAwMSw0JmRlbHRhPSZkYXRhc2V0PWNtaXA2Jmdlby1zZWxlY3Q9JnZhcj1pY2VfZGF5cyZ2YXItZ3JvdXA9b3RoZXImbW9yYT1hbm4mcmNwPXNzcDU4NSZkZWNhZGU9MTk3MHMmc2VjdG9yPXw3NDIyMTkyNjU%3D' > output.png
@@ -92,8 +94,7 @@ def decode_and_validate_url(encoded_url):
 
 def get_raster_route():
     """
-        Dispatch raster action to handler functions.
-        See handler functions for usage.
+        Validate encoded URL and perform raster if valid
         :return: response containing the output image
     """
     encoded_url = request.args.get('url')
