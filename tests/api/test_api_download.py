@@ -271,3 +271,85 @@ def test_api_download_get(url: str, status_code: int):
 def test_api_download_post(url: str, status_code: int, payload):
     response = requests.post(url, json=payload)
     assert response.status_code == status_code
+
+
+@pytest.mark.parametrize(
+    "url,expected_filename,payload",
+    [
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            "random_csv_test_name.zip",
+            {
+                "var": "tx_max",
+                "month": "ann",
+                "format": "csv",
+                "zipped": True,
+                "custom_filename": "random_csv_test_name",
+                "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058],
+            },
+            id="download_zipped_custom_filename_csv",
+        ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            "random_json_test_name.zip",
+            {
+                "var": "tx_max",
+                "month": "ann",
+                "format": "json",
+                "zipped": True,
+                "custom_filename": "random_json_test_name",
+                "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058],
+            },
+            id="download_zipped_custom_filename_json",
+        ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            "random_netcdf_test_name.nc",
+            {
+                "var": "tx_max",
+                "month": "ann",
+                "format": "netcdf",
+                "custom_filename": "random_netcdf_test_name",
+                "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058],
+            },
+            id="download_custom_filename_netcdf",
+        ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            "tx_max.nc",
+            {
+                "var": "tx_max",
+                "month": "ann",
+                "format": "netcdf",
+                "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058],
+            },
+            id="download_standard_filename_netcdf",
+        ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            "tx_max.zip",
+            {
+                "var": "tx_max",
+                "month": "ann",
+                "format": "json",
+                "zipped": True,
+                "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058],
+            },
+            id="download_nozip_standard_filename_json",
+        ),
+    ],
+)
+def test_api_download_post_custom_filename(url, expected_filename, payload):
+    response = requests.post(url, json=payload)
+    filename = get_filename_from_content_disposition(response.headers["Content-Disposition"])
+    assert filename == expected_filename
+
+
+def get_filename_from_content_disposition(content_disposition):
+    if not content_disposition:
+        return None
+    filename = [fn for fn in content_disposition.split(";") if "filename=" in fn]
+
+    if filename and len(filename) == 1:
+        return filename[0].split("=")[1]
+    return None
