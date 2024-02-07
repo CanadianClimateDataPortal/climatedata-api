@@ -1,5 +1,6 @@
 import base64
 import functools
+import os
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -27,16 +28,21 @@ def get_selenium_driver():
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')  # /dev/shm can be too small within docker
 
-    return webdriver.Chrome('/bin/chromedriver', options=chrome_options)
+    return webdriver.Chrome('/usr/bin/chromedriver', options=chrome_options)
 
 
-def get_explore_variable_raster(url, output_img_path):
+def get_raster(url, output_img_path):
     """
         Raster the "explore location" chart.
-        Note: URL is encoded using tools/encoder.html
+        Notes: * URL is encoded using tools/encoder.html
+               * Web page must expose $.fn.prepare_raster() function that will prepare the DOM for raster
+                 and add the "to-raster" class to the DOM object that will be screenshoted.
 
         ex: To raster the following URL: https://climatedata.crim.ca/explore/variable/?coords=62.5325943454858,-98.48144531250001,4&delta=&dataset=cmip6&geo-select=&var=ice_days&var-group=other&mora=ann&rcp=ssp585&decade=1970s&sector=
             curl 'http://localhost:5000/raster?url=aHR0cHM6Ly9jbGltYXRlZGF0YS5jcmltLmNhL2V4cGxvcmUvdmFyaWFibGUvP2Nvb3Jkcz02Mi41MzI1OTQzNDU0ODU4LC05OC40ODE0NDUzMTI1MDAwMSw0JmRlbHRhPSZkYXRhc2V0PWNtaXA2Jmdlby1zZWxlY3Q9JnZhcj1pY2VfZGF5cyZ2YXItZ3JvdXA9b3RoZXImbW9yYT1hbm4mcmNwPXNzcDU4NSZkZWNhZGU9MTk3MHMmc2VjdG9yPXw3NDIyMTkyNjU%3D' > output.png
+            To raster the following URL: https://climatedata.crim.ca/explore/location/?loc=EFJGU&location-select-temperature=tx_max&location-select-precipitation=r1mm&location-select-other=frost_days
+            curl 'http://localhost:5000/raster?url=aHR0cHM6Ly9jbGltYXRlZGF0YS5jcmltLmNhL2V4cGxvcmUvbG9jYXRpb24vP2xvYz1FRkpHVSZsb2NhdGlvbi1zZWxlY3QtdGVtcGVyYXR1cmU9dHhfbWF4JmxvY2F0aW9uLXNlbGVjdC1wcmVjaXBpdGF0aW9uPXIxbW0mbG9jYXRpb24tc2VsZWN0LW90aGVyPWZyb3N0X2RheXN8LTQwOTIzNzYwOQ%3D%3D'  > output.png
+
         :param url: URL to raster
         :param output_img_path: output path of the raster
     """
@@ -45,37 +51,10 @@ def get_explore_variable_raster(url, output_img_path):
 
     try:
         WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.TAG_NAME, "body")))
-
-        driver.execute_script("return document.getElementById('main-header').remove();")
-        driver.execute_script("return document.getElementById('var-sliders').remove();")
-        driver.execute_script("return document.getElementById('map-controls').remove();")
-        driver.execute_script("return document.getElementsByClassName('page-tour')[0].remove();")
         time.sleep(1)
-        driver.find_element(By.TAG_NAME, "body").screenshot(output_img_path)
-    finally:
-        driver.quit()
-
-
-def get_explore_location_raster(url, output_img_path):
-    """
-        Raster the "explore location" chart.
-        Note: URL is encoded using tools/encoder.html
-
-        ex: To raster the following URL: https://climatedata.ca/explore/location/?loc=EHHUN&location-select-temperature=tx_max
-            curl 'http://localhost:5000/raster?url=aHR0cHM6Ly9jbGltYXRlZGF0YS5jYS9leHBsb3JlL2xvY2F0aW9uLz9sb2M9RUhIVU4mbG9jYXRpb24tc2VsZWN0LXRlbXBlcmF0dXJlPXR4X21heHwyMDYxMTkzNjY5'  > output.png
-        :param url: URL to raster
-        :param output_img_path: output path of the raster
-    """
-    driver = get_selenium_driver()
-    driver.get(url)
-
-    try:
-        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//*[@id='temperature-chart']/div[2]/div[2]")))
-
-        driver.execute_script("return document.getElementsByClassName('chart-tour-trigger')[0].remove();")
-        driver.execute_script("return document.getElementsByClassName('highcharts-exporting-group')[0].remove();")
+        driver.execute_script("$.fn.prepare_raster();")
         time.sleep(1)
-        driver.find_elements(By.CLASS_NAME, "var-chart")[0].screenshot(output_img_path)
+        driver.find_element(By.CLASS_NAME, "to-raster").screenshot(output_img_path)
     finally:
         driver.quit()
 
@@ -115,8 +94,7 @@ def decode_and_validate_url(encoded_url):
 
 def get_raster_route():
     """
-        Dispatch raster action to handler functions.
-        See handler functions for usage.
+        Validate encoded URL and perform raster if valid
         :return: response containing the output image
     """
     encoded_url = request.args.get('url')
@@ -130,14 +108,9 @@ def get_raster_route():
         return "Please provide a trusted `url` query parameter.", 400
 
     output_img_path = "/tmp/" + str(uuid.uuid4()) + ".png"
-    
-    if "/explore/variable" in url or "/explorer/variable" in url:
-        get_explore_variable_raster(url, output_img_path)
-        page_name = "variable"
-    elif "/explore/location" in url or "/explorer/emplacement" in url:
-        get_explore_location_raster(url, output_img_path)
-        page_name = "location"
-    else:
-        return "Undefined raster handler for URL.", 400
-        
-    return send_file(output_img_path, mimetype='image/png', as_attachment=True, download_name=f'climatedata.ca - {page_name} - {parsed_url.query}.png')
+
+    get_raster(url, output_img_path)
+
+    f = open(output_img_path, "rb")
+    os.unlink(output_img_path)
+    return send_file(f, mimetype='image/png', as_attachment=True, download_name=f'climatedata.ca - {parsed_url.path.strip("/").replace("/","-") } - {parsed_url.query}.png')
