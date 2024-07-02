@@ -177,7 +177,7 @@ AHCCD_METADATA_COLUMNS = ['station_name', 'lon', 'lat', 'elev', 'prov']
 AHCCD_VALUES_COLUMNS = ['tas', 'tas_flag', 'tasmax', 'tasmax_flag', 'tasmin', 'tasmin_flag',
                'pr', 'pr_flag', 'prlp', 'prlp_flag', 'prsn', 'prsn_flag']
 AHCCD_ORDER = AHCCD_METADATA_COLUMNS + AHCCD_VALUES_COLUMNS
-
+AHCCD_STATIONS_LIMIT = 15
 
 CSV_COLUMNS_ORDER = ['time', 'lat', 'lon']
 

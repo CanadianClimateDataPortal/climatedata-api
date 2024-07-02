@@ -501,6 +501,8 @@ def download_ahccd():
         variable_type_filter = args.get('variable_type_filter', "").upper()
         if len(stations) == 0:
             raise ValueError
+        if len(stations) > app.config['AHCCD_STATIONS_LIMIT']:
+            return "Too many stations requested", 400
     except (ValueError, BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
