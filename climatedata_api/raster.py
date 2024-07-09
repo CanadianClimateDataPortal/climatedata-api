@@ -4,6 +4,7 @@ import os
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -22,13 +23,15 @@ from urllib.parse import urlparse
 
 
 def get_selenium_driver():
+    chrome_service = Service(executable_path='/usr/bin/chromedriver')
+
     chrome_options = Options()
-    chrome_options.headless = True
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--window-size=2560,1440")
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')  # /dev/shm can be too small within docker
 
-    return webdriver.Chrome('/usr/bin/chromedriver', options=chrome_options)
+    return webdriver.Chrome(service=chrome_service, options=chrome_options)
 
 
 def get_raster(url, output_img_path):
