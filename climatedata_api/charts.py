@@ -21,7 +21,7 @@ def _format_slices_to_highcharts_series(anusplin_location_slice, bccaq_location_
 
     chart_series = {}
 
-    if anusplin_location_slice:
+    if anusplin_location_slice and len(anusplin_location_slice.time) > 0:
         if anusplin_location_slice[var].attrs.get('units') == 'K':
             anusplin_location_slice = anusplin_location_slice + app.config['KELVIN_TO_C']
 
