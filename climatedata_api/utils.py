@@ -8,6 +8,7 @@ import pickle
 import numpy as np
 import zipfile
 
+
 def open_dataset(dataset_name, filetype, var, freq, period=None, partition=None):
     """
     Open and return a xarray dataset. Try all path formats, since provided datasets had inconsistent naming convention
