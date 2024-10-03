@@ -23,7 +23,7 @@ FILENAME_FORMATS = {
         'allyears': "BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{freq}{period}.nc",
         'partitions': {'allyears': "{var}_{freq}_BCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_AllYears_Ensemble_percentiles.nc",
                        '30ygraph': "{var}_{freq}_BCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_30yGraph_Means_Ensemble_percentiles.nc",
-                       '30ymeans': "{var}_{freq}_MBCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_30y_Means_Ensemble_percentiles.nc"},
+                       '30ymeans': "{var}_{freq}_BCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_30y_Means_Ensemble_percentiles.nc"},
         '30ygraph': "30yAvg_BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{freq}{period}.nc"
     },
     'CMIP6': {
