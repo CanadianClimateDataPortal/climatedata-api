@@ -12,26 +12,31 @@ CACHE_FOLDER = Path("./cache")
 
 FILENAME_FORMATS = {
     'ANUSPLIN_v1': {
-        'allyears': "nrcan_canada_1950-2013_{var}_{freq}.nc",
-        'partitions': {'allyears': "nrcan_canada_1950-2013_{var}_{freq}_spatialAvg.nc"}
+        'allyears': ["nrcan_canada_1950-2013_{var}_{freq}.nc"],
+        'partitions': {'allyears': ["nrcan_canada_1950-2013_{var}_{freq}_spatialAvg.nc"]}
     },
     'PCIC_Blended_Observations_v1': {
-        'allyears': "{var}_{freq}_PCIC_Blended_Observations_v1_1950-2012.nc",
-        'partitions': {'allyears': "{var}_{freq}_PCIC_Blended_Observations_v1_1950-2012_spatialAvg.nc"}
+        'allyears': ["{var}_{freq}_PCIC_Blended_Observations_v1_1950-2012.nc"],
+        'partitions': {'allyears': ["{var}_{freq}_PCIC_Blended_Observations_v1_1950-2012_spatialAvg.nc"]}
     },
     'CMIP5': {
-        'allyears': "BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{freq}{period}.nc",
-        'partitions': {'allyears': "{var}_{freq}_BCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_AllYears_Ensemble_percentiles.nc",
-                       '30ygraph': "{var}_{freq}_BCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_30yGraph_Means_Ensemble_percentiles.nc",
-                       '30ymeans': "{var}_{freq}_BCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_30y_Means_Ensemble_percentiles.nc"},
-        '30ygraph': "30yAvg_BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{freq}{period}.nc"
+        'allyears': ["BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{freq}{period}.nc"],
+        'partitions': {'allyears': ["{var}_{freq}_BCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_AllYears_Ensemble_percentiles.nc"],
+                       '30ygraph': ["{var}_{freq}_BCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_30yGraph_Means_Ensemble_percentiles.nc"],
+                       '30ymeans': ["{var}_{freq}_BCCAQv2+ANUSPLIN300_historical_allrcps_spatialAvg_30y_Means_Ensemble_percentiles.nc"]},
+        '30ygraph': ["30yAvg_BCCAQv2+ANUSPLIN300_ensemble-percentiles_historical+allrcps_1951-2100_{var}_{freq}{period}.nc"]
     },
     'CMIP6': {
-        'allyears': "{var}_{freq}_MBCn+PCIC-Blend_historical+allssps_1950-2100_AllYears_percentiles{period}.nc",
-        'partitions': {'allyears': "{var}_{freq}_MBCn+PCIC-Blend_historical_allrcps_spatialAvg_AllYears_Ensemble_percentiles.nc",
-                       '30ygraph': "{var}_{freq}_MBCn+PCIC-Blend_historical_allrcps_spatialAvg_30yGraph_Means_Ensemble_percentiles.nc",
-                       '30ymeans': "{var}_{freq}_MBCn+PCIC-Blend_historical_allrcps_spatialAvg_30y_Means_Ensemble_percentiles.nc"},
-        '30ygraph': "{var}_{freq}_MBCn+PCIC-Blend_historical+allssps_1950-2100_30yGraph_percentiles{period}.nc"
+        'allyears': ["{var}_{freq}_MBCn+PCIC-Blend_historical+allssps_1950-2100_AllYears_percentiles{period}.nc",
+                     "{var}_{freq}_BCCAQ2v2+ANUSPLIN300_historical+allssps_1950-2100_AllYears_percentiles{period}.nc"],
+        'partitions': {'allyears': ["{var}_{freq}_MBCn+PCIC-Blend_historical_allrcps_spatialAvg_AllYears_Ensemble_percentiles.nc",
+                                    "{freq}_{var}_allrcps_RegSummary_AllYears_Ensemble_percentiles.nc"],
+                       '30ygraph': ["{var}_{freq}_MBCn+PCIC-Blend_historical_allrcps_spatialAvg_30yGraph_Means_Ensemble_percentiles.nc",
+                                    "{freq}_{var}_allrcps_RegSummary_30yGraph_Means_Ensemble_percentiles.nc"],
+                       '30ymeans': ["{var}_{freq}_MBCn+PCIC-Blend_historical_allrcps_spatialAvg_30y_Means_Ensemble_percentiles.nc",
+                                    "{freq}_{var}_allrcps_RegSummary_30y_Means_Ensemble_percentiles.nc"]},
+        '30ygraph': ["{var}_{freq}_MBCn+PCIC-Blend_historical+allssps_1950-2100_30yGraph_percentiles{period}.nc",
+                     "{var}_{freq}_BCCAQ2v2+ANUSPLIN300_historical+allssps_1950-2100_30yGraph_percentiles{period}.nc"]
     }
 }
 
