@@ -445,7 +445,7 @@ def download_regional_30y(partition, index, var, month):
         return "Bad request", 400
 
     delta_30y_dataset = open_dataset(dataset_name, '30ygraph', var, msys, partition=partition)
-    delta_30y_slice = delta_30y_dataset.sel(region=indexi).drop(
+    delta_30y_slice = delta_30y_dataset.sel(geom=indexi).drop(
         [i for i in delta_30y_dataset.coords if i != 'time']).dropna('time')
 
     # we filter the appropriate month/season from the MS or QS-DEC file
