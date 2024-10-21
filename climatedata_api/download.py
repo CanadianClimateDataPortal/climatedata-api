@@ -592,8 +592,8 @@ def download_ahccd():
             temp_df = station_df.reset_index()
             temp_df = temp_df.drop([c for c in temp_df if c not in app.config['AHCCD_VALUES_COLUMNS']], axis=1)
             temp_df = temp_df.replace('', np.nan)
-            tmin = np.min(temp_df.apply(pd.Series.first_valid_index))
-            tmax = np.max(temp_df.apply(pd.Series.last_valid_index))
+            tmin = int(np.min(temp_df.apply(pd.Series.first_valid_index)))
+            tmax = int(np.max(temp_df.apply(pd.Series.last_valid_index)))
             station_df = station_df.iloc[tmin:tmax + 1]
             response_data += station_df.to_csv(chunksize=100000, columns=columns_order, header=first_station)
             first_station = False
