@@ -30,11 +30,11 @@ FILENAME_FORMATS = {
         'allyears': ["{var}_{freq}_MBCn+PCIC-Blend_historical+allssps_1950-2100_AllYears_percentiles{period}.nc",
                      "{var}_{freq}_BCCAQ2v2+ANUSPLIN300_historical+allssps_1950-2100_AllYears_percentiles{period}.nc"],
         'partitions': {'allyears': ["{var}_{freq}_MBCn+PCIC-Blend_historical_allrcps_spatialAvg_AllYears_Ensemble_percentiles.nc",
-                                    "{freq}_{var}_MBCn_ERA5-Land_historical_allrcps_spatialAvg_AllYears_Ensemble_percentiles.nc"],
+                                    "{var}_{freq}_MBCn_ERA5-Land_historical_allrcps_spatialAvg_AllYears_Ensemble_percentiles.nc"],
                        '30ygraph': ["{var}_{freq}_MBCn+PCIC-Blend_historical_allrcps_spatialAvg_30yGraph_Means_Ensemble_percentiles.nc",
-                                    "{freq}_{var}_MBCn_ERA5-Land_historical_allrcps_spatialAvg_30yGraph_Means_Ensemble_percentiles.nc"],
+                                    "{var}_{freq}_MBCn_ERA5-Land_historical_allrcps_spatialAvg_30yGraph_Means_Ensemble_percentiles.nc"],
                        '30ymeans': ["{var}_{freq}_MBCn+PCIC-Blend_historical_allrcps_spatialAvg_30y_Means_Ensemble_percentiles.nc",
-                                    "{freq}_{var}_MBCn_ERA5-Land_historical_allrcps_spatialAvg_30y_Means_Ensemble_percentiles.nc"]},
+                                    "{var}_{freq}_MBCn_ERA5-Land_historical_allrcps_spatialAvg_30y_Means_Ensemble_percentiles.nc"]},
         '30ygraph': ["{var}_{freq}_MBCn+PCIC-Blend_historical+allssps_1950-2100_30yGraph_percentiles{period}.nc",
                      "{var}_{freq}_BCCAQ2v2+ANUSPLIN300_historical+allssps_1950-2100_30yGraph_percentiles{period}.nc"]
     }
