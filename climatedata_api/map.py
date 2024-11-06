@@ -165,7 +165,7 @@ def get_delta_30y_regional_values(partition, index, var, month):
 
     delta = f"_{app.config['DELTA_NAMING'][dataset_name]}" if delta7100 == "true" else ""
     delta_30y_dataset = open_dataset(dataset_name, '30ygraph', var, msys, partition=partition)
-    delta_30y_slice = delta_30y_dataset.sel(region=indexi).sel(time=f"{period}-{monthnumber}-01")
+    delta_30y_slice = delta_30y_dataset.sel(geom=indexi).sel(time=f"{period}-{monthnumber}-01")
 
     return _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals, dataset_name)
 

@@ -8,24 +8,33 @@ import pickle
 import numpy as np
 import zipfile
 
+
 def open_dataset(dataset_name, filetype, var, freq, period=None, partition=None):
     """
     Open and return a xarray dataset. Try all path formats, since provided datasets had inconsistent naming convention
     :return: Dataset object
     """
     if partition:
-        filename_format = app.config['FILENAME_FORMATS'][dataset_name]['partitions'][filetype]
-        dataset_path = app.config['DATASETS_ROOT'] / dataset_name / "partitions" / partition / var / freq \
-            / filename_format.format(var=var, freq=freq, period=period)
+        filename_formats = app.config['FILENAME_FORMATS'][dataset_name]['partitions'][filetype]
     else:
-        filename_format = app.config['FILENAME_FORMATS'][dataset_name][filetype]
-        dataset_path = app.config['DATASETS_ROOT'] / dataset_name / filetype / var / freq \
-            / filename_format.format(var=var, freq=freq, period=period)
-    if not dataset_path.exists():
-        raise FileNotFoundError(f"Dataset not found {dataset_path}")
-    dataset = xr.open_dataset(dataset_path, decode_times=False)
-    dataset['time'] = xr.decode_cf(dataset).time
-    return dataset
+        filename_formats = app.config['FILENAME_FORMATS'][dataset_name][filetype]
+
+    # try all filename formats and return first found
+    for filename_format in filename_formats:
+        if partition:
+            dataset_path = app.config['DATASETS_ROOT'] / dataset_name / "partitions" / partition / var / freq \
+                           / filename_format.format(var=var, freq=freq, period=period)
+        else:
+            dataset_path = app.config['DATASETS_ROOT'] / dataset_name / filetype / var / freq \
+                           / filename_format.format(var=var, freq=freq, period=period)
+        print (f"trying {dataset_path}")
+        if not dataset_path.exists():
+            continue
+        dataset = xr.open_dataset(dataset_path, decode_times=False)
+        dataset['time'] = xr.decode_cf(dataset).time
+        return dataset
+
+    raise FileNotFoundError(f"Dataset not found for {dataset_name}, {filetype}, {var}, {freq}, {period}, {partition}")
 
 
 def open_dataset_by_path(path):
@@ -108,6 +117,7 @@ def format_metadata(ds) -> str:
             out += _fmt_attrs(val, key, tab=tab)
         out += "\n#\n"
     return out
+
 
 def decode_compressed_points(compressed_points):
     """

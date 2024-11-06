@@ -9,3 +9,6 @@ datasets
 .pytest_cache
 cache
 *.zip
+*.csv
+*.json
+*.csv#
