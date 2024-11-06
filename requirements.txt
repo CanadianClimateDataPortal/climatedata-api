@@ -3,7 +3,8 @@ clisops
 flask
 geopandas
 mapbox_vector_tile
-netCDF4
+netCDF4~=1.6.0
+numpy~=1.23.0
 pandas
 protobuf>=3.19.4,<4.21.0
 requests
@@ -12,4 +13,4 @@ selenium
 sentry-sdk[flask]
 validators
 wheel
-xarray>=0.16.0
+xarray~=2022.3.0
