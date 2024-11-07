@@ -14,8 +14,7 @@ from climatedata_api.map import (get_choro_values,
                                  get_delta_30y_regional_values,
                                  get_slr_gridded_values,
                                  get_id_list_from_points)
-from climatedata_api.siteinfo import (get_location_values,
-                                      get_location_values_allyears)
+from climatedata_api.siteinfo import (get_location_values)
 from climatedata_api.raster import get_raster_route
 from climatedata_api.utils import generate_kdtrees
 
@@ -55,7 +54,6 @@ app.add_url_rule('/download-30y/<lat>/<lon>/<var>/<month>', view_func=download_3
 app.add_url_rule('/download-regional-30y/<partition>/<index>/<var>/<month>', view_func=download_regional_30y)
 
 # various site information
-app.add_url_rule('/get_location_values_allyears.php', view_func=get_location_values_allyears)
 app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_values)
 
 # raster routes

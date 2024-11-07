@@ -27,7 +27,7 @@ def open_dataset(dataset_name, filetype, var, freq, period=None, partition=None)
         else:
             dataset_path = app.config['DATASETS_ROOT'] / dataset_name / filetype / var / freq \
                            / filename_format.format(var=var, freq=freq, period=period)
-        print (f"trying {dataset_path}")
+
         if not dataset_path.exists():
             continue
         dataset = xr.open_dataset(dataset_path, decode_times=False)
