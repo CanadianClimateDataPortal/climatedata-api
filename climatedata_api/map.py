@@ -62,6 +62,10 @@ def _convert_delta30_values_to_dict(delta_30y_slice, var, delta, decimals, datas
 
     values = {}
     for scenario in scenarios:
+        # Skip the scenario if it's not available for this variable
+        scenario_test_key = f"{scenario}_{var}{delta}_{percentiles[0]}"
+        if scenario_test_key not in delta_30y_slice:
+            continue
         values[scenario] = {p: round(delta_30y_slice[f"{scenario}_{var}{delta}_{p}"].item(), decimals) for p in
                             percentiles}
     return values

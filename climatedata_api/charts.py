@@ -49,6 +49,9 @@ def _format_slices_to_highcharts_series(observations_location_slice, bccaq_locat
         bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER'][dataset_name]), drop=True)
 
     for scenario in scenarios:
+        # Skip the scenario if it's not available for this variable
+        if f'{scenario}_{var}_p50' not in bccaq_location_slice:
+            continue
         chart_series[scenario + '_median'] = convert_time_series_dataset_to_list(
             bccaq_location_slice[f'{scenario}_{var}_p50'], decimals)
         chart_series[scenario + '_range'] = convert_time_series_dataset_to_list(
@@ -64,6 +67,9 @@ def _format_slices_to_highcharts_series(observations_location_slice, bccaq_locat
         delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
 
     for scenario in scenarios:
+        # Skip the scenario if it's not available for this variable
+        if f'{scenario}_{var}_p50' not in delta_30y_slice:
+            continue
         chart_series[f"30y_{scenario}_median"] = convert_time_series_dataset_to_dict(
             delta_30y_slice[f'{scenario}_{var}_p50'],
             decimals)
