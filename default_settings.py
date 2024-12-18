@@ -54,8 +54,10 @@ NETCDF_SPEI_OBSERVED_FILENAME_FORMATS = "{root}/SPEI/{var}/CCRC_CANGRD_MON_1900_
 NETCDF_SLR_PATH = "{root}/sealevel/Decadal_CMIP5_ensemble-percentiles_allrcps_2006-2100_slr_YS.nc"
 NETCDF_SLR_ENHANCED_PATH = "{root}/sealevel/Decadal_0.1degree_CMIP5_ensemble-percentiles_enhancedscenario_2100_slc_YS_geoserver.nc"
 
-SCENARIOS = {'CMIP5': ['rcp26', 'rcp45', 'rcp85'],
-             'CMIP6': ['ssp126', 'ssp245', 'ssp585']}
+SCENARIOS = {
+    'CMIP5': ['rcp26', 'rcp45', 'rcp85'],
+    'CMIP6': ['ssp126', 'ssp245', 'ssp370', 'ssp585'],
+}
 
 DELTA_NAMING = {'CMIP5': 'delta7100',
                 'CMIP6': 'delta_1971_2000'}
