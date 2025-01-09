@@ -237,7 +237,7 @@ def download():
         dataset_type = args.get('dataset_type', 'allyears')
         custom_filename = args.get('custom_filename', None)
 
-        decimals = int(args.get('decimals', 2))
+        decimals = int(args.get('decimals', 1))
         if decimals < 0:
             return "Bad request: invalid number of decimals", 400
         monthpath, freq = app.config['MONTH_LUT'][month]
@@ -400,7 +400,7 @@ def download_30y(var, lat, lon, month):
     try:
         lati = float(lat)
         loni = float(lon)
-        decimals = int(request.args.get('decimals', 2))
+        decimals = int(request.args.get('decimals', 1))
         dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
 
         if decimals < 0:
@@ -432,7 +432,7 @@ def download_regional_30y(partition, index, var, month):
 
         msys = app.config['MONTH_LUT'][month][1]
         monthnumber = app.config['MONTH_NUMBER_LUT'][month]
-        decimals = int(request.args.get('decimals', 2))
+        decimals = int(request.args.get('decimals', 1))
         dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
 
         if decimals < 0:
