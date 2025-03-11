@@ -189,13 +189,23 @@ def generate_slr_charts(lati, loni):
     """
         Copied from generate_spei_charts: no historical, no observations, single file
         ex: curl http://localhost:5000/generate-charts/58.031372421776396/-61.12792968750001/slr/ann
+            curl http://localhost:5000/generate-charts/58.031372421776396/-61.12792968750001/slr/ann?dataset_name=CMIP6
     """
-    dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'].format(root=app.config['DATASETS_ROOT']))
-    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
+    try:
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
+        if dataset_name not in ['CMIP5', 'CMIP6']:
+            raise KeyError("Invalid dataset requested")
+    except KeyError:
+        return "Bad request", 400
 
-    dataset_enhanced = open_dataset_by_path(
-        app.config['NETCDF_SLR_ENHANCED_PATH'].format(root=app.config['DATASETS_ROOT']))
-    enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon'])
+    if dataset_name == "CMIP5":
+        slr_path = app.config['NETCDF_SLR_PATH']
+        low_p, high_p = "p05", "p95"
+    else:
+        slr_path = app.config['NETCDF_SLR_CMIP6_PATH']
+        low_p, high_p = "p17", "p83"
+    dataset = open_dataset_by_path(slr_path.format(root=app.config['DATASETS_ROOT']))
+    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
 
     chart_series = {}
 
@@ -203,10 +213,19 @@ def generate_slr_charts(lati, loni):
         chart_series[scenario + '_median'] = convert_time_series_dataset_to_list(
             location_slice[f'{scenario}_slr_p50'], decimals=0)
         chart_series[scenario + '_range'] = convert_time_series_dataset_to_list(
-            xr.merge([location_slice[f'{scenario}_slr_p05'],
-                      location_slice[f'{scenario}_slr_p95']]), decimals=0)
-    chart_series['rcp85_enhanced'] = [[dataset_enhanced['time'].item() / 10 ** 6,
-                                       round(enhanced_location_slice['enhanced_p50'].item(), 0)]]
+            xr.merge([location_slice[f'{scenario}_slr_{low_p}'],
+                      location_slice[f'{scenario}_slr_{high_p}']]), decimals=0)
+
+    if dataset_name == "CMIP5":
+        dataset_enhanced = open_dataset_by_path(
+            app.config['NETCDF_SLR_ENHANCED_PATH'].format(root=app.config['DATASETS_ROOT']))
+        enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon'])
+        chart_series['rcp85_enhanced'] = [[dataset_enhanced['time'].item() / 10 ** 6,
+                                           round(enhanced_location_slice['enhanced_p50'].item(), 0)]]
+    else:  # CMIP6
+        for scenario in ['ssp585_p83_low_conf', 'ssp585_p98_high_end', 'uplift']:
+            chart_series[scenario] = [[location_slice['time'].item() / 10 ** 6,
+                                       round(location_slice[scenario].item(), 0)]]
 
     return chart_series
 
