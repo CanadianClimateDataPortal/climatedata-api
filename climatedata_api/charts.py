@@ -209,7 +209,7 @@ def generate_slr_charts(lati, loni):
 
     chart_series = {}
 
-    for scenario in app.config['SCENARIOS']['CMIP5']:
+    for scenario in app.config['SCENARIOS'][dataset_name]:
         chart_series[scenario + '_median'] = convert_time_series_dataset_to_list(
             location_slice[f'{scenario}_slr_p50'], decimals=0)
         chart_series[scenario + '_range'] = convert_time_series_dataset_to_list(
@@ -223,9 +223,9 @@ def generate_slr_charts(lati, loni):
         chart_series['rcp85_enhanced'] = [[dataset_enhanced['time'].item() / 10 ** 6,
                                            round(enhanced_location_slice['enhanced_p50'].item(), 0)]]
     else:  # CMIP6
-        for scenario in ['ssp585_p83_low_conf', 'ssp585_p98_high_end', 'uplift']:
-            chart_series[scenario] = [[location_slice['time'].item() / 10 ** 6,
-                                       round(location_slice[scenario].item(), 0)]]
+        for scenario in ['ssp585_slr_p83_low_conf', 'ssp585_slr_p98_high_end', 'uplift']:
+            chart_series[scenario] = convert_time_series_dataset_to_list(
+                location_slice[scenario], decimals=0)
 
     return chart_series
 
