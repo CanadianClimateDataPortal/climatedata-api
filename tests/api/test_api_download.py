@@ -202,6 +202,23 @@ def test_api_download_get(url: str, status_code: int):
             f"{TEST_HOST_URL}/download",
             200,
             {
+                "var": "allowance",
+                "month": "ann",
+                "format": "csv",
+                "dataset_name": "CMIP6",
+                "points": [
+                    [55.615479404227266, -80.75205994818893],
+                    [55.615479404227266, -80.57633593798099],
+                    [55.54715240897225, -80.63124969117096],
+                    [55.54093496609795, -80.70812894563693],
+                ]
+            },
+            id="download_dataset_allowance_csv",
+        ),
+        pytest.param(
+            f"{TEST_HOST_URL}/download",
+            200,
+            {
                 "var": "spei_3m",
                 "month": "dec",
                 "format": "csv",

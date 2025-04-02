@@ -38,6 +38,11 @@ from tests.configs import TEST_HOST_URL
             id="get_slr_gridded_values"
         ),
         pytest.param(
+            f"{TEST_HOST_URL}/get-allowance-gridded-values/61.04/-61.11?period=2050",
+            200,
+            id="get_allowance_gridded_values"
+        ),
+        pytest.param(
             f"{TEST_HOST_URL}/get-delta-30y-regional-values/census/4510/tx_max/ann?period=1951",
             200,
             id="get_delta_30y_regional_values",

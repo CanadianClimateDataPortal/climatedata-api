@@ -193,7 +193,7 @@ def generate_spei_charts(var, lati, loni, month, decimals):
 def generate_slr_charts(lati, loni):
     """
         Copied from generate_spei_charts: no historical, no observations, single file
-        ex: curl http://localhost:5000/generate-charts/58.031372421776396/-61.12792968750001/slr/ann
+        ex: curl http://localhost:5000/generate-charts/58.031372421776396/-61.12792968750001/slr/ann?dataset_name=CMIP6
     """
     dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'].format(root=app.config['DATASETS_ROOT']))
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
