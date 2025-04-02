@@ -143,8 +143,8 @@ def get_slr_gridded_values(lat, lon):
     else:  # CMIP6
         slr_values = _convert_delta30_values_to_dict(
             location_slice, 'slr', "", 0, 'CMIP6', percentiles=['p17', 'p50', 'p83'])
-        slr_values['ssp585_p83_low_conf'] = {'p83': round(location_slice['ssp585_slr_p83_low_conf'].item(), 0)}
-        slr_values['ssp585_p98_high_end'] = {'p98': round(location_slice['ssp585_slr_p98_high_end'].item(), 0)}
+        slr_values['ssp585lowConf'] = {'p83': round(location_slice['ssp585lowConf_slr_p83'].item(), 0)}
+        slr_values['ssp585highEnd'] = {'p98': round(location_slice['ssp585highEnd_slr_p98'].item(), 0)}
         slr_values['uplift'] = {'uplift': round(location_slice['uplift'].item(), 0)}
 
     return slr_values

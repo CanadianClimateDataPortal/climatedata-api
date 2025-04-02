@@ -223,9 +223,10 @@ def generate_slr_charts(lati, loni):
         chart_series['rcp85_enhanced'] = [[dataset_enhanced['time'].item() / 10 ** 6,
                                            round(enhanced_location_slice['enhanced_p50'].item(), 0)]]
     else:  # CMIP6
-        for scenario in ['ssp585_slr_p83_low_conf', 'ssp585_slr_p98_high_end', 'uplift']:
-            chart_series[scenario] = convert_time_series_dataset_to_list(
-                location_slice[scenario], decimals=0)
+        for k,v in {"ssp585lowConf": "ssp585lowConf_slr_p83",
+                    "ssp585highEnd": "ssp585highEnd_slr_p98",
+                    "uplift": "uplift"}.items():
+            chart_series[k] = convert_time_series_dataset_to_list(location_slice[v], decimals=0)
 
     return chart_series
 
