@@ -127,7 +127,7 @@ def get_slr_gridded_values(lat, lon):
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-    slr_path = app.config['NETCDF_SLR_PATH'] if dataset_name == "CMIP5" else app.config['NETCDF_SLR_CMIP6_PATH']
+    slr_path = app.config['NETCDF_SLR_CMIP5_PATH'] if dataset_name == "CMIP5" else app.config['NETCDF_SLR_CMIP6_PATH']
 
     dataset = open_dataset_by_path(slr_path.format(root=app.config['DATASETS_ROOT']))
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=f"{period}-01-01")

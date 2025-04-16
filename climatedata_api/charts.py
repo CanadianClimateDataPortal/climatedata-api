@@ -199,7 +199,7 @@ def generate_slr_charts(lati, loni):
         return "Bad request", 400
 
     if dataset_name == "CMIP5":
-        slr_path = app.config['NETCDF_SLR_PATH']
+        slr_path = app.config['NETCDF_SLR_CMIP5_PATH']
         low_p, high_p = "p05", "p95"
     else:
         slr_path = app.config['NETCDF_SLR_CMIP6_PATH']
