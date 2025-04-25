@@ -111,6 +111,11 @@ def generate_charts(var, lat, lon, month='ann'):
     if var == 'slr':
         return generate_slr_charts(lati, loni)
 
+    if var == 'allowance':
+        if dataset_name != 'CMIP6':
+            return f"Bad request : `allowance` variable only uses the CMIP6 dataset, and has no {dataset_name} data available.\n", 400
+        return generate_allowance_charts(lati, loni)
+
     try:
         observations_dataset = open_dataset(app.config['OBSERVATIONS_DATASET'][dataset_name],
                                             'allyears', var, msys, monthpath)
@@ -227,6 +232,22 @@ def generate_slr_charts(lati, loni):
                     "ssp585highEnd": "ssp585highEnd_slr_p98",
                     "uplift": "uplift"}.items():
             chart_series[k] = convert_time_series_dataset_to_list(location_slice[v], decimals=0)
+
+    return chart_series
+
+
+def generate_allowance_charts(lati, loni):
+    """
+        Copied from generate_slr_charts: no historical, no observations, single file
+        ex: curl http://localhost:5000/generate-charts/58.031372421776396/-61.12792968750001/allowance/ann?dataset_name=CMIP6
+    """
+    dataset = open_dataset_by_path(app.config['NETCDF_ALLOWANCE_PATH'].format(root=app.config['DATASETS_ROOT']))
+    location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
+
+    chart_series = {}
+    for scenario in app.config['SCENARIOS']['CMIP6']:
+        chart_series[scenario] = convert_time_series_dataset_to_list(
+            location_slice[f'{scenario}_allowance_p50'], decimals=0)
 
     return chart_series
 

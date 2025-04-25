@@ -55,6 +55,8 @@ NETCDF_SLR_CMIP5_PATH = "{root}/sealevel/Decadal_CMIP5_ensemble-percentiles_allr
 NETCDF_SLR_ENHANCED_PATH = "{root}/sealevel/Decadal_0.1degree_CMIP5_ensemble-percentiles_enhancedscenario_2100_slc_YS_geoserver.nc"
 NETCDF_SLR_CMIP6_PATH = "{root}/sealevel/Decadal_CMIP6_ensemble-percentiles_allssps_2020-2150_slr_YS.nc"
 
+NETCDF_ALLOWANCE_PATH =  "{root}/allowance/Decadal_CMIP6_median_allssps_2020-2150_allowance_YS.nc"
+
 SCENARIOS = {
     'CMIP5': ['rcp26', 'rcp45', 'rcp85'],
     'CMIP6': ['ssp126', 'ssp245', 'ssp370', 'ssp585'],
@@ -72,7 +74,8 @@ SPEI_DATE_LIMIT = '1950-01-01'
 KELVIN_TO_C = -273.15
 DOWNLOAD_POINTS_LIMIT = 1000
 
-VARIABLES = ['cdd',
+VARIABLES = ['allowance',
+             'cdd',
              'cddcold_18',
              'dlyfrzthw_tx0_tn-1',
              'frost_days',

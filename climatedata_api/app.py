@@ -9,7 +9,8 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from climatedata_api.charts import generate_charts, generate_regional_charts
 from climatedata_api.download import (download, download_30y, download_ahccd,
                                       download_regional_30y)
-from climatedata_api.map import (get_choro_values,
+from climatedata_api.map import (get_allowance_gridded_values,
+                                 get_choro_values,
                                  get_delta_30y_gridded_values,
                                  get_delta_30y_regional_values,
                                  get_slr_gridded_values,
@@ -43,6 +44,7 @@ app.add_url_rule('/get-choro-values/<partition>/<var>/<scenario>/<month>/', view
 app.add_url_rule('/get-choro-values/<partition>/<var>/<scenario>', view_func=get_choro_values)
 app.add_url_rule('/get-delta-30y-gridded-values/<lat>/<lon>/<var>/<month>', view_func=get_delta_30y_gridded_values)
 app.add_url_rule('/get-slr-gridded-values/<lat>/<lon>', view_func=get_slr_gridded_values)
+app.add_url_rule('/get-allowance-gridded-values/<lat>/<lon>', view_func=get_allowance_gridded_values)
 app.add_url_rule('/get-delta-30y-regional-values/<partition>/<index>/<var>/<month>',
                  view_func=get_delta_30y_regional_values)
 app.add_url_rule('/get-gids/<compressed_points>', view_func=get_id_list_from_points)

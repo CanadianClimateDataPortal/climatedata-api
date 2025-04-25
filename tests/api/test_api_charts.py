@@ -28,6 +28,11 @@ from tests.configs import TEST_HOST_URL
             id="generate_slr_charts",
         ),
         pytest.param(
+            f"{TEST_HOST_URL}/generate-charts/58.031372421776396/-61.12792968750001/allowance/ann?dataset_name=CMIP6",
+            200,
+            id="generate_allowance_charts",
+        ),
+        pytest.param(
             f"{TEST_HOST_URL}/generate-regional-charts/census/4510/tx_max/ann",
             200,
             id="generate_regional_charts"
