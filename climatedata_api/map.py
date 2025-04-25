@@ -113,6 +113,7 @@ def get_slr_gridded_values(lat, lon):
     """
     Returns all values from sea-level change dataset for a requested location
     ex: curl http://localhost:5000/get-slr-gridded-values/61.04/-61.11?period=2050
+    ex: curl http://localhost:5000/get-slr-gridded-values/61.04/-61.11?period=2050&dataset_name=CMIP6
     :param lat: latitude (float as string)
     :param lon: longitude (float as string)
     """
@@ -120,19 +121,32 @@ def get_slr_gridded_values(lat, lon):
         lati = float(lat)
         loni = float(lon)
         period = int(request.args['period'])
+        dataset_name = request.args.get('dataset_name', 'CMIP5').upper()
+        if dataset_name not in ['CMIP5', 'CMIP6']:
+            raise KeyError("Invalid dataset requested")
     except (ValueError, BadRequestKeyError, KeyError):
         return "Bad request", 400
 
-    dataset = open_dataset_by_path(app.config['NETCDF_SLR_PATH'].format(root=app.config['DATASETS_ROOT']))
+    slr_path = app.config['NETCDF_SLR_CMIP5_PATH'] if dataset_name == "CMIP5" else app.config['NETCDF_SLR_CMIP6_PATH']
+
+    dataset = open_dataset_by_path(slr_path.format(root=app.config['DATASETS_ROOT']))
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=f"{period}-01-01")
 
-    dataset_enhanced = open_dataset_by_path(
-        app.config['NETCDF_SLR_ENHANCED_PATH'].format(root=app.config['DATASETS_ROOT']))
-    enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest')
+    if dataset_name == "CMIP5":
+        dataset_enhanced = open_dataset_by_path(
+            app.config['NETCDF_SLR_ENHANCED_PATH'].format(root=app.config['DATASETS_ROOT']))
+        enhanced_location_slice = dataset_enhanced.sel(lon=loni, lat=lati, method='nearest')
 
-    slr_values = _convert_delta30_values_to_dict(
-        location_slice, 'slr', "", 0, 'CMIP5', percentiles=['p05', 'p50', 'p95'])
-    slr_values['rcp85plus65'] = {'p50': round(enhanced_location_slice['enhanced_p50'].item(), 0)}
+        slr_values = _convert_delta30_values_to_dict(
+            location_slice, 'slr', '', 0, 'CMIP5', percentiles=['p05', 'p50', 'p95'])
+        slr_values['rcp85plus65'] = {'p50': round(enhanced_location_slice['enhanced_p50'].item(), 0)}
+    else:  # CMIP6
+        slr_values = _convert_delta30_values_to_dict(
+            location_slice, 'slr', '', 0, 'CMIP6', percentiles=['p17', 'p50', 'p83'])
+        slr_values['ssp585lowConf'] = {'p83': round(location_slice['ssp585lowConf_slr_p83'].item(), 0)}
+        slr_values['ssp585highEnd'] = {'p98': round(location_slice['ssp585highEnd_slr_p98'].item(), 0)}
+        slr_values['uplift'] = {'uplift': round(location_slice['uplift'].item(), 0)}
+
     return slr_values
 
 
