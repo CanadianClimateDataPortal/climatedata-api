@@ -283,6 +283,10 @@ def download():
                     " Only `CMIP5` and `CMIP6` are available for slr."), 400
         slr_path = app.config['NETCDF_SLR_CMIP5_PATH'] if dataset_name == "CMIP5" else app.config['NETCDF_SLR_CMIP6_PATH']
         datasets = [open_dataset_by_path(slr_path.format(root=app.config['DATASETS_ROOT']))]
+    elif var == 'allowance':
+        if dataset_name != 'CMIP6':
+            return f"Bad request : `allowance` variable only uses the CMIP6 dataset, and has no {dataset_name} data available.\n", 400
+        datasets = [open_dataset_by_path(app.config['NETCDF_ALLOWANCE_PATH'].format(root=app.config['DATASETS_ROOT']))]
     elif var in app.config['SPEI_VARIABLES']:
         datasets = [open_dataset_by_path(
             app.config['NETCDF_SPEI_FILENAME_FORMATS'].format(root=app.config['DATASETS_ROOT'], var=var))]
