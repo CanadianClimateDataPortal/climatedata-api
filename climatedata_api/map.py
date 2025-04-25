@@ -156,10 +156,10 @@ def get_allowance_gridded_values(lat, lon):
     dataset = open_dataset_by_path(app.config['NETCDF_ALLOWANCE_PATH'].format(root=app.config['DATASETS_ROOT']))
     location_slice = dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=f"{period}-01-01")
 
-    slr_values = _convert_delta30_values_to_dict(
+    allowance_values = _convert_delta30_values_to_dict(
         location_slice, 'allowance', "", 0, dataset_name, percentiles=['p50'])
 
-    return slr_values
+    return allowance_values
 
 
 def get_delta_30y_regional_values(partition, index, var, month):
