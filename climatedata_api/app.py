@@ -9,6 +9,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from climatedata_api.charts import generate_charts, generate_regional_charts
 from climatedata_api.download import (download, download_30y, download_ahccd,
                                       download_regional_30y)
+from climatedata_api.geomet import get_geomet_collection_download_links
 from climatedata_api.map import (get_allowance_gridded_values,
                                  get_choro_values,
                                  get_delta_30y_gridded_values,
@@ -63,6 +64,8 @@ app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_valu
 # raster routes
 app.add_url_rule('/raster', view_func=get_raster_route)
 
+# geomet routes
+app.add_url_rule('/get-geomet-collection-items-links/<collectionId>', view_func=get_geomet_collection_download_links)
 
 @app.errorhandler(BadRequest)
 def handle_bad_request(e):
