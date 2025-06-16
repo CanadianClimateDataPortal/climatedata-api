@@ -9,13 +9,25 @@ VALID_COLLECTION_IDS = [ "climate-normals", "climate-daily"]
 
 def get_geomet_collection_download_links(collectionId):
     """
-    Get download links for a Geomet collection.
+    Get paginated links to download all items of a GeoMet collection.
 
-    :param collectionId: The ID of the Geomet collection.
-    :return: A list of dictionaries containing download links and metadata.
+    Return the set of GeoMet API links (i.e. "paginated" links) required to download all
+    items of the collection `collectionId`. Each link returns a maximum of
+    `GEOMET_API_PAGE_SIZE` items. The links are sorted.
+
+    GET parameters can be used to filter or alter the set of items. All GET parameters
+    supported by the GeoMet `/collections/{collectionId}/items` endpoint can be used,
+    except `limit`, `offset` and `resulttype` which will be overwritten.
+
+    :param collectionId: The ID of the GeoMet collection to query.
+    :return:
+        Sorted list of links to the GeoMet API. Each element is a dictionary:
+        - `url` (str): GeoMet API URL to download this set of items.
+        - `start_index` (int): Index of the first item in the set.
+        - `end_index` (int): Index of the last item in the set.
     """
     if not isinstance(collectionId, str) or collectionId not in VALID_COLLECTION_IDS:
-        return f"Invalid collectionId. It must have a valid value : {VALID_COLLECTION_IDS}.", 400
+        return f"Invalid collectionId. Valid values are : {VALID_COLLECTION_IDS}.", 400
 
     parameters = request.args.to_dict()
 
@@ -49,7 +61,7 @@ def get_geomet_collection_download_links(collectionId):
         links.append({
             "start_index": offset,
             "end_index": min(offset + GEOMET_API_PAGE_SIZE, nb_total_results) - 1,
-            "url": page_url
+            "url": page_url,
         })
 
     return links
