@@ -57,6 +57,10 @@ NETCDF_SLR_CMIP6_PATH = "{root}/sealevel/Decadal_CMIP6_ensemble-percentiles_alls
 
 NETCDF_ALLOWANCE_PATH =  "{root}/allowance/Decadal_CMIP6_median_allssps_2020-2150_allowance_YS.nc"
 
+NETCDF_S2D_FORECAST_FILENAME_FORMATS = "{root}/s2d/data/forecast/{var}/s2d-forecast-{var}-{freq}-data.nc"
+NETCDF_S2D_CLIMATOLOGY_FILENAME_FORMATS = "{root}/s2d/data/climatology/{var}/s2d-climatology-{var}-{freq}-data.nc"
+NETCDF_S2D_SKILL_FILENAME_FORMATS = "{root}/s2d/data/skill/{var}/s2d-skill-{var}-{freq}-rel_to_{ref_period}-data.nc"
+
 SCENARIOS = {
     'CMIP5': ['rcp26', 'rcp45', 'rcp85'],
     'CMIP6': ['ssp126', 'ssp245', 'ssp370', 'ssp585'],
@@ -230,3 +234,14 @@ ALLOWED_DOMAINS = [
 ]
 
 SALT = "override-me"
+
+S2D_VARIABLES = [
+    'air_temp',
+    'precipitation',
+]
+
+S2D_FREQUENCIES = [
+    'monthly',
+    'seasonal',
+    # 'decadal',
+]

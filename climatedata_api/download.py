@@ -618,3 +618,7 @@ def download_ahccd():
                             headers={"Content-disposition": "attachment; filename=ahccd.csv"})
 
     return "Bad request", 400
+
+
+def download_s2d():
+    pass

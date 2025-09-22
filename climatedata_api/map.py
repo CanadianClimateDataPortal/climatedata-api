@@ -241,3 +241,61 @@ def get_id_list_from_points(compressed_points):
             break
 
     return gids.tolist()
+
+def get_s2d_release_date(var, freq):
+    """
+    Return the release date of the forecast data associated to a given variable and frequency
+    curl 'http://localhost:5000/get-s2d-release-date/air_temp/seasonal'
+    """
+    try:
+        if var not in app.config['S2D_VARIABLES']:
+            raise ValueError
+        if freq not in app.config['S2D_FREQUENCIES']:
+            raise ValueError
+    except ValueError:
+        return "Bad request", 400
+
+
+    dataset = open_dataset_by_path(app.config['NETCDF_S2D_FORECAST_FILENAME_FORMATS'].format(
+        root=app.config['DATASETS_ROOT'],
+        var=var,
+        freq=freq
+    ))
+
+    latest_datetime = dataset['time'].min().values
+    latest_datetime_str = str(latest_datetime.astype('datetime64[D]'))
+    return latest_datetime_str
+
+def get_s2d_gridded_values(lat, lon, var, freq, period):
+    """
+    Fetch specific data within the S2D dataset
+    ex: curl 'http://localhost:5000/get-s2d-gridded-values/60.31062731740045/-100.06347656250001/pr/mon?period=202001'
+        curl 'http://localhost:5000/get-s2d-gridded-values/60.31062731740045/-100.06347656250001/tx_max/ann?period=2020'
+    :param lat: latitude (float as string)
+    :param lon: longitude (float as string)
+    :param var: climate variable name
+    :param freq: frequency (ann, mon)
+    :param period: year for ann, yyyymm for mon
+    :return: dictionary for p10, p50 and p90 of requested values
+    """
+    try:
+        lati = float(lat)
+        loni = float(lon)
+        if var not in app.config['S2D_VARIABLES']:
+            raise ValueError
+        if freq not in app.config['S2D_FREQUENCIES']:
+            raise ValueError
+        if freq == 'ann':
+            period_str = f"{int(period)}-01-01"
+        else:
+            if len(period) != 6:
+                raise ValueError
+            period_str = f"{int(period[:4])}-{int(period[4:6])}-01"
+    except (ValueError, BadRequestKeyError):
+        return "Bad request", 400
+
+    s2d_dataset = open_dataset('S2D', 's2dgraph', var, freq)
+    s2d_slice = s2d_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=period_str)
+
+    values = {p: round(s2d_slice[f"s2d_{var}_{p}"].item(), 2) for p in ['p10', 'p50', 'p90']}
+    return values
