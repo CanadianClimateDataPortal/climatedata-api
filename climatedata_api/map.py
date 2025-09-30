@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 
 from flask import Flask, Response
@@ -269,14 +270,7 @@ def get_s2d_release_date(var, freq):
 def get_s2d_gridded_values(lat, lon, var, freq, period):
     """
     Fetch specific data within the S2D dataset
-    ex: curl 'http://localhost:5000/get-s2d-gridded-values/60.31062731740045/-100.06347656250001/pr/mon?period=202001'
-        curl 'http://localhost:5000/get-s2d-gridded-values/60.31062731740045/-100.06347656250001/tx_max/ann?period=2020'
-    :param lat: latitude (float as string)
-    :param lon: longitude (float as string)
-    :param var: climate variable name
-    :param freq: frequency (ann, mon)
-    :param period: year for ann, yyyymm for mon
-    :return: dictionary for p10, p50 and p90 of requested values
+    e.g. : curl 'http://localhost:5000/get-s2d-gridded-values/61.04/-61.11?/air_temp/seasonal?period=2025-07'
     """
     try:
         lati = float(lat)
@@ -285,17 +279,44 @@ def get_s2d_gridded_values(lat, lon, var, freq, period):
             raise ValueError
         if freq not in app.config['S2D_FREQUENCIES']:
             raise ValueError
-        if freq == 'ann':
-            period_str = f"{int(period)}-01-01"
-        else:
-            if len(period) != 6:
-                raise ValueError
-            period_str = f"{int(period[:4])}-{int(period[4:6])}-01"
+        period_date = datetime.strptime(period, "%Y-%m")
     except (ValueError, BadRequestKeyError):
         return "Bad request", 400
 
-    s2d_dataset = open_dataset('S2D', 's2dgraph', var, freq)
-    s2d_slice = s2d_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=period_str)
+    # Load forecast data
+    forecast_dataset = open_dataset_by_path(app.config['NETCDF_S2D_FORECAST_FILENAME_FORMATS'].format(
+        root=app.config['DATASETS_ROOT'],
+        var=var,
+        freq=freq
+    ))
+    if not ((forecast_dataset['time'].dt.year == period_date.year) &
+            (forecast_dataset['time'].dt.month == period_date.month)).any():
+        return f"Bad request: period {period_date} not available in forecast dataset", 400
+    forecast_slice = forecast_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=period_date)
 
-    values = {p: round(s2d_slice[f"s2d_{var}_{p}"].item(), 2) for p in ['p10', 'p50', 'p90']}
+    # Load climatology data
+    climatology_dataset = open_dataset_by_path(app.config['NETCDF_S2D_CLIMATOLOGY_FILENAME_FORMATS'].format(
+        root=app.config['DATASETS_ROOT'],
+        var=var,
+        freq=freq
+    ))
+    climatology_period_date = period_date.replace(year=1991)
+    climatology_slice = climatology_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=climatology_period_date)
+
+    # Load skill data
+    release_date = get_s2d_release_date(var, freq)
+    ref_period = datetime.strptime(release_date, "%Y-%m-%d").month
+    skill_dataset = open_dataset_by_path(app.config['NETCDF_S2D_SKILL_FILENAME_FORMATS'].format(
+        root=app.config['DATASETS_ROOT'],
+        var=var,
+        freq=freq,
+        ref_period=ref_period
+    ))
+    if period_date.month not in skill_dataset['time'].dt.month.values:
+        return f"Bad request: period {period_date} not available in skill dataset", 400
+    skill_slice = skill_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=skill_dataset['time'].dt.month == period_date.month)
+
+    values = {}
+    for dataset in [forecast_slice, climatology_slice, skill_slice]:
+        values.update({var: dataset[var].item() for var in dataset.data_vars})
     return values
