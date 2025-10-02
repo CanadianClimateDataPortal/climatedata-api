@@ -78,6 +78,10 @@ SPEI_DATE_LIMIT = '1950-01-01'
 KELVIN_TO_C = -273.15
 DOWNLOAD_POINTS_LIMIT = 1000
 
+DOWNLOAD_NETCDF_FORMAT = 'netcdf'
+DOWNLOAD_JSON_FORMAT = 'json'
+DOWNLOAD_CSV_FORMAT = 'csv'
+
 VARIABLES = ['allowance',
              'cdd',
              'cddcold_18',
@@ -235,13 +239,28 @@ ALLOWED_DOMAINS = [
 
 SALT = "override-me"
 
+S2D_VARIABLE_AIR_TEMP = 'air_temp'
+S2D_VARIABLE_PRECIP_ACCUM = 'precip_accum'
+
 S2D_VARIABLES = [
-    'air_temp',
-    'precipitation',
+    S2D_VARIABLE_AIR_TEMP,
+    S2D_VARIABLE_PRECIP_ACCUM,
 ]
 
+S2D_FREQUENCY_MONTHLY = 'monthly'
+S2D_FREQUENCY_SEASONAL = 'seasonal'
+#S2D_FREQUENCY_DECADAL = 'decadal'
+
 S2D_FREQUENCIES = [
-    'monthly',
-    'seasonal',
+    S2D_FREQUENCY_MONTHLY,
+    S2D_FREQUENCY_SEASONAL,
     # 'decadal',
+]
+
+S2D_FORECAST_TYPE_EXPECTED = 'expected'
+S2D_FORECAST_TYPE_UNUSUAL = 'unusual'
+
+S2D_FORECAST_TYPES = [
+    S2D_FORECAST_TYPE_EXPECTED,
+    S2D_FORECAST_TYPE_UNUSUAL
 ]
