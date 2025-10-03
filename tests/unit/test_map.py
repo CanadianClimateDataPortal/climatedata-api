@@ -3,8 +3,9 @@ import xarray as xr
 from unittest.mock import patch
 
 from climatedata_api.map import get_s2d_release_date, get_s2d_gridded_values
-from default_settings import S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL
-from tests.unit.utils import generate_s2d_test_datasets, FORECAST_DATA_VAR_NAMES, CLIMATO_DATA_VAR_NAMES
+from default_settings import S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL, S2D_CLIMATO_DATA_VAR_NAMES, \
+    S2D_FORECAST_DATA_VAR_NAMES
+from tests.unit.utils import generate_s2d_test_datasets
 
 
 class TestGetS2DReleaseDate:
@@ -48,11 +49,11 @@ class TestGetS2DGriddedValues:
         assert result == {
             **{
                 var: forecast_ds[var].sel(time="2025-08-01", lat=lats[0], lon=lons[0]).item()
-                for var in FORECAST_DATA_VAR_NAMES
+                for var in S2D_FORECAST_DATA_VAR_NAMES
             },
             **{
                 var: climato_ds[var].sel(time="1991-08-01", lat=lats[0], lon=lons[0]).item()
-                for var in CLIMATO_DATA_VAR_NAMES
+                for var in S2D_CLIMATO_DATA_VAR_NAMES
             },
             "skill_level": skill_ds["skill_level"].sel(time="1991-08-01", lat=lats[0], lon=lons[0]).item(),
             "skill_CRPSS": skill_ds["skill_CRPSS"].sel(time="1991-08-01", lat=lats[0], lon=lons[0]).item(),

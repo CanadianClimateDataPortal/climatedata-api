@@ -1,22 +1,7 @@
 import numpy as np
 import xarray as xr
 
-
-FORECAST_DATA_VAR_NAMES = [
-    "prob_unusually_low",
-    "prob_below_normal",
-    "prob_near_normal",
-    "prob_above_normal",
-    "prob_unusually_high"
-]
-
-CLIMATO_DATA_VAR_NAMES = [
-    "cutoff_unusually_low_p20",
-    "cutoff_below_normal_p33",
-    "historical_median_p50",
-    "cutoff_above_normal_p66",
-    "cutoff_unusually_high_p80"
-]
+from default_settings import S2D_FORECAST_DATA_VAR_NAMES, S2D_CLIMATO_DATA_VAR_NAMES
 
 
 def generate_s2d_test_datasets(lats, lons, forecast_times, skill_times, add_test_metadata=False):
@@ -25,7 +10,7 @@ def generate_s2d_test_datasets(lats, lons, forecast_times, skill_times, add_test
     forecast_shape = (len(forecast_times), len(lats), len(lons))
     forecast_data = {
         var: (dims, np.random.uniform(0, 100, size=np.prod(forecast_shape)).astype(np.float32).reshape(forecast_shape))
-        for var in FORECAST_DATA_VAR_NAMES
+        for var in S2D_FORECAST_DATA_VAR_NAMES
     }
     forecast_ds = xr.Dataset(
         data_vars=forecast_data,
@@ -40,7 +25,7 @@ def generate_s2d_test_datasets(lats, lons, forecast_times, skill_times, add_test
     climato_shape = (len(climato_times), len(lats), len(lons))
     climato_data = {
         var: (dims, np.random.uniform(10, 25, size=np.prod(climato_shape)).astype(np.float32).reshape(climato_shape))
-        for var in CLIMATO_DATA_VAR_NAMES
+        for var in S2D_CLIMATO_DATA_VAR_NAMES
     }
     climato_ds = xr.Dataset(
         data_vars=climato_data,

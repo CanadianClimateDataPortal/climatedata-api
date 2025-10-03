@@ -264,3 +264,34 @@ S2D_FORECAST_TYPES = [
     S2D_FORECAST_TYPE_EXPECTED,
     S2D_FORECAST_TYPE_UNUSUAL
 ]
+
+S2D_FORECAST_DATA_VAR_NAMES = [
+    "prob_unusually_low",
+    "prob_below_normal",
+    "prob_near_normal",
+    "prob_above_normal",
+    "prob_unusually_high"
+]
+
+S2D_CLIMATO_DATA_VAR_NAMES = [
+    "cutoff_unusually_low_p20",
+    "cutoff_below_normal_p33",
+    "historical_median_p50",
+    "cutoff_above_normal_p66",
+    "cutoff_unusually_high_p80"
+]
+
+S2D_SKILL_DATA_VAR_NAMES = [
+    "skill_CRPSS",
+    "skill_level"
+]
+
+S2D_FILENAME_VALUES = {
+    S2D_VARIABLE_AIR_TEMP: 'MeanTemp',
+    S2D_VARIABLE_PRECIP_ACCUM: 'TotalPrecip',
+    S2D_FORECAST_TYPE_EXPECTED: 'ExpectedCond',
+    S2D_FORECAST_TYPE_UNUSUAL: 'UnusualCond',
+    S2D_FREQUENCY_MONTHLY: 'Monthly',
+    S2D_FREQUENCY_SEASONAL: 'Seasonal',
+    #S2D_FREQUENCY_DECADAL: 'Decadal',
+}

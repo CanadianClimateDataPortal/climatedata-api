@@ -1,7 +1,9 @@
 import calendar
 import itertools
 import os
+import shutil
 import tempfile
+import zipfile
 from datetime import datetime
 from textwrap import dedent
 
@@ -11,7 +13,7 @@ from pandas.api.types import is_numeric_dtype
 
 import xarray as xr
 from clisops.core.subset import subset_bbox
-from flask import Response
+from flask import Response, after_this_request
 from flask import current_app as app
 from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
@@ -19,7 +21,7 @@ from werkzeug.exceptions import BadRequestKeyError
 from climatedata_api.map import get_s2d_release_date
 from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path
 from default_settings import DOWNLOAD_CSV_FORMAT, DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_JSON_FORMAT, S2D_FREQUENCY_MONTHLY, \
-    S2D_FREQUENCY_SEASONAL, S2D_FORECAST_TYPE_EXPECTED
+    S2D_FREQUENCY_SEASONAL, S2D_FORECAST_TYPE_EXPECTED, S2D_FILENAME_VALUES
 
 
 def float_format_dataframe(df, decimals):
@@ -751,12 +753,12 @@ def download_s2d():
 
     # Load skill data
     release_date = get_s2d_release_date(var, freq)
-    ref_period = datetime.strptime(release_date, "%Y-%m-%d").month
+    ref_period = datetime.strptime(release_date, "%Y-%m-%d")
     skill_dataset = open_dataset_by_path(app.config['NETCDF_S2D_SKILL_FILENAME_FORMATS'].format(
         root=app.config['DATASETS_ROOT'],
         var=var,
         freq=freq,
-        ref_period=ref_period
+        ref_period=ref_period.month
     ))
     for period_date in period_dates:
         if period_date.month not in skill_dataset['time'].dt.month.values:
@@ -779,10 +781,28 @@ def download_s2d():
     climatology_slice = filter_dataset(climatology_slice, points, bbox)
     skill_slice = filter_dataset(skill_slice, points, bbox)
 
+    # prepare filename placeholders values
+    filename_var = S2D_FILENAME_VALUES[var]
+    filename_forecast_type = S2D_FILENAME_VALUES[forecast_type]
+    filename_freq = S2D_FILENAME_VALUES[freq]
+    filename_release_date = calendar.month_abbr[ref_period.month] + str(ref_period.year)
+
     # merge datasets into a single xarray
     merged_slices = {}
     for period_date in period_dates:
         month = period_date.month
+
+        # Add missing metadata
+        if freq == S2D_FREQUENCY_MONTHLY:
+            time_period_abbr = calendar.month_abbr[month]
+        elif freq == S2D_FREQUENCY_SEASONAL:
+            time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 2) % 12]}"
+        # elif freq == 'decadal':
+            # pass
+        else:
+            raise ValueError(f"Invalid frequency `{freq}`")
+
+        basename = f"{filename_var}_{filename_forecast_type}_{time_period_abbr}_Release{filename_release_date}"
 
         # Select only the times with this month in each dataset
         month_slices = [
@@ -791,32 +811,23 @@ def download_s2d():
         ]
 
         # Merge them for this month
-        merged_slices[month] = xr.merge(
+        merged_slices[basename] = xr.merge(
             month_slices,
             combine_attrs='override'  # keeps attributes/metadata from the first dataset (forecast dataset in this case)
         )
 
-        # Add missing metadata
-        metadata_time_period = None
-        if freq == S2D_FREQUENCY_MONTHLY:
-            metadata_time_period = calendar.month_abbr[month]
-        elif freq == S2D_FREQUENCY_SEASONAL:
-            metadata_time_period = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 2) % 12]}"
-        # elif freq == 'decadal':
-            # pass
-
-        merged_slices[month].attrs['time_period'] = metadata_time_period
+        merged_slices[basename].attrs['time_period'] = time_period_abbr
 
         # remove unused data variables depending of forecast_type
         if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
-            merged_slices[month] = merged_slices[month].drop_vars([
+            merged_slices[basename] = merged_slices[basename].drop_vars([
                 'prob_unusually_high',
                 'prob_unusually_low',
                 'cutoff_unusually_high_p80',
                 'cutoff_unusually_low_p20'
             ])
         else:  # unusual
-            merged_slices[month] = merged_slices[month].drop_vars([
+            merged_slices[basename] = merged_slices[basename].drop_vars([
                 'prob_above_normal',
                 'prob_near_normal',
                 'prob_below_normal',
@@ -824,10 +835,79 @@ def download_s2d():
                 'cutoff_below_normal_p33'
             ])
 
-    # export netcdf
-    # convert to json and export
-        # include metadata
-    # convert to csv and export
-        # include metadata
+    zip_filename = f"{filename_var}_{filename_forecast_type}_{filename_freq}_Release{filename_release_date}.zip"
+    tmpdir = tempfile.mkdtemp()
+    zip_path = os.path.join(tmpdir, zip_filename)
+
+    @after_this_request
+    def cleanup(response):
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        return response
+
+    if output_format == DOWNLOAD_NETCDF_FORMAT:
+        try:
+            with zipfile.ZipFile(zip_path, "w") as zipf:
+                for file_basename, ds in merged_slices.items():
+                    encodings = {}
+                    for v in ds.data_vars:
+                        encodings[v] = {"zlib": True}
+
+                    nc_filename = f"{file_basename}.nc"
+                    nc_path = os.path.join(tmpdir, nc_filename)
+                    ds.to_netcdf(nc_path, encoding=encodings, format='NETCDF4')
+                    zipf.write(nc_path, arcname=nc_filename)
+        except Exception:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            raise
+
+        return send_file(
+            zip_path,
+            download_name=zip_filename,
+            mimetype="application/zip"
+        )
+
+    if output_format == DOWNLOAD_CSV_FORMAT:
+        try:
+            with zipfile.ZipFile(zip_path, "w") as zipf:
+                for file_basename, ds in merged_slices.items():
+                    csv_filename = f"{file_basename}.csv"
+                    csv_path = os.path.join(tmpdir, csv_filename)
+
+                    df = ds.to_dataframe()
+                    df = df.drop("region", axis=1, errors='ignore')
+
+                    columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in ds] + \
+                                    [c for c in app.config['S2D_FORECAST_DATA_VAR_NAMES'] if c in ds] + \
+                                    [c for c in app.config['S2D_CLIMATO_DATA_VAR_NAMES'] if c in ds] + \
+                                    [c for c in app.config['S2D_SKILL_DATA_VAR_NAMES'] if c in ds]
+                    df = df.sort_values(by=['lat', 'lon'])
+                    df.to_csv(csv_path, columns=columns_order, index=False)
+
+                    zipf.write(csv_path, arcname=csv_filename)
+                # TODO: add metadata file
+        except Exception:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            raise
+
+        return send_file(zip_path, mimetype='application/zip', download_name=zip_filename)
+    #
+    # if output_format == DOWNLOAD_JSON_FORMAT:
+    #     if points:
+    #         response_data = "[" + ",".join(
+    #             map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month),
+    #                 dfs)) + "]"
+    #     else:
+    #         df_groups = [g[1].reset_index().set_index('time') for g in
+    #                      pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).groupby(by=['lat', 'lon'])]
+    #         response_data = "[" + ",".join(map(lambda df: output_json(df, var, freq, decimals, month), df_groups)) + "]"
+    #
+    #     if zipped:
+    #         zip_buffer = make_zip([
+    #             ('metadata.txt', metadata),
+    #             (f'{filename}.json', response_data),
+    #         ])
+    #         return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'{filename}.zip')
+    #     else:
+    #         return Response(response_data, mimetype='application/json')
 
     return 200
