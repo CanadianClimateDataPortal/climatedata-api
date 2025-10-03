@@ -7,6 +7,7 @@ import zipfile
 from datetime import datetime
 from textwrap import dedent
 
+import geopandas
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
@@ -765,18 +766,6 @@ def download_s2d():
             return f"Bad request: period {period_date} not available in skill dataset", 400
     skill_slice = skill_dataset.sel(time=skill_dataset['time'].dt.month.isin([d.month for d in period_dates]))
 
-    # TODO: review pour avoir format uniforme selon points ou bbox
-    def filter_dataset(dataset, points, bbox):
-        # Filter to points/bbox
-        if points:
-            subsetted_datasets = [[get_subset(dataset, p, adjust=False)] for p in points]
-            # Combined datasets into a single xarray with a region dimension that represents each unique (lat, lon) points
-            combined_ds = (xr.combine_nested(subsetted_datasets, ['region', 'time'], combine_attrs='override')
-                .dropna('region', how='all'))
-        else:
-            combined_ds = get_subset(dataset, bbox, adjust=False)
-        return combined_ds
-
     forecast_slice = filter_dataset(forecast_slice, points, bbox)
     climatology_slice = filter_dataset(climatology_slice, points, bbox)
     skill_slice = filter_dataset(skill_slice, points, bbox)
@@ -835,6 +824,7 @@ def download_s2d():
                 'cutoff_below_normal_p33'
             ])
 
+    # Output data to .zip file
     zip_filename = f"{filename_var}_{filename_forecast_type}_{filename_freq}_Release{filename_release_date}.zip"
     tmpdir = tempfile.mkdtemp()
     zip_path = os.path.join(tmpdir, zip_filename)
@@ -866,48 +856,71 @@ def download_s2d():
             mimetype="application/zip"
         )
 
-    if output_format == DOWNLOAD_CSV_FORMAT:
-        try:
-            with zipfile.ZipFile(zip_path, "w") as zipf:
-                for file_basename, ds in merged_slices.items():
+    # CSV or JSON output format
+    try:
+        with zipfile.ZipFile(zip_path, "w") as zipf:
+            for file_basename, ds in merged_slices.items():
+
+                df = ds.to_dataframe()
+                columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in ds] + \
+                                [c for c in app.config['S2D_FORECAST_DATA_VAR_NAMES'] if c in ds] + \
+                                [c for c in app.config['S2D_CLIMATO_DATA_VAR_NAMES'] if c in ds] + \
+                                [c for c in app.config['S2D_SKILL_DATA_VAR_NAMES'] if c in ds]
+                df = df.sort_values(by=['lat', 'lon'])
+
+                if output_format == DOWNLOAD_CSV_FORMAT:
                     csv_filename = f"{file_basename}.csv"
                     csv_path = os.path.join(tmpdir, csv_filename)
-
-                    df = ds.to_dataframe()
-                    df = df.drop("region", axis=1, errors='ignore')
-
-                    columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in ds] + \
-                                    [c for c in app.config['S2D_FORECAST_DATA_VAR_NAMES'] if c in ds] + \
-                                    [c for c in app.config['S2D_CLIMATO_DATA_VAR_NAMES'] if c in ds] + \
-                                    [c for c in app.config['S2D_SKILL_DATA_VAR_NAMES'] if c in ds]
-                    df = df.sort_values(by=['lat', 'lon'])
                     df.to_csv(csv_path, columns=columns_order, index=False)
-
                     zipf.write(csv_path, arcname=csv_filename)
-                # TODO: add metadata file
-        except Exception:
-            shutil.rmtree(tmpdir, ignore_errors=True)
-            raise
 
-        return send_file(zip_path, mimetype='application/zip', download_name=zip_filename)
-    #
-    # if output_format == DOWNLOAD_JSON_FORMAT:
-    #     if points:
-    #         response_data = "[" + ",".join(
-    #             map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month),
-    #                 dfs)) + "]"
-    #     else:
-    #         df_groups = [g[1].reset_index().set_index('time') for g in
-    #                      pd.concat(dfs).sort_values(by=['lat', 'lon', 'time']).groupby(by=['lat', 'lon'])]
-    #         response_data = "[" + ",".join(map(lambda df: output_json(df, var, freq, decimals, month), df_groups)) + "]"
-    #
-    #     if zipped:
-    #         zip_buffer = make_zip([
-    #             ('metadata.txt', metadata),
-    #             (f'{filename}.json', response_data),
-    #         ])
-    #         return send_file(zip_buffer, mimetype='application/zip', as_attachment=True, download_name=f'{filename}.zip')
-    #     else:
-    #         return Response(response_data, mimetype='application/json')
+                if output_format == DOWNLOAD_JSON_FORMAT:
+                    json_filename = f"{file_basename}.json"
+                    json_path = os.path.join(tmpdir, json_filename)
 
-    return 200
+                    gdf = geopandas.GeoDataFrame(df, geometry=geopandas.points_from_xy(df.lon, df.lat)).reset_index(drop=True)
+                    gdf = gdf[columns_order + ['geometry']]
+                    gdf.to_file(json_path, driver="GeoJSON")
+
+                    zipf.write(json_path, arcname=json_filename)
+
+                metadata_filename = f"metadata_{file_basename}.txt"
+                metadata_path = os.path.join(tmpdir, metadata_filename)
+                write_metadata_file(metadata_path, ds)
+                zipf.write(metadata_path, arcname=metadata_filename)
+    except Exception:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise
+
+    return send_file(zip_path, mimetype='application/zip', download_name=zip_filename)
+
+
+def filter_dataset(dataset, points, bbox):
+    """
+    Returns a subset of the dataset according to the input points or bbox
+    """
+    if points:
+        subsetted_datasets = [[get_subset(dataset, p, adjust=False)] for p in points]
+        # Combined datasets into a single xarray with a region dimension that represents each unique (lat, lon) points
+        combined_ds = (xr.combine_nested(subsetted_datasets, ['region', 'time'], combine_attrs='override')
+                       .dropna('region', how='all'))
+    else:
+        combined_ds = get_subset(dataset, bbox, adjust=False)
+    return combined_ds
+
+
+def write_metadata_file(path, dataset):
+    with open(path, "w") as f:
+        f.write("=== Dataset global attributes ===\n")
+        for key, value in dataset.attrs.items():
+            f.write(f"{key}: {value}\n")
+
+        for coord_name in dataset.coords:
+            f.write(f"\n=== Coordinate: {coord_name} ===\n")
+            for key, value in dataset[coord_name].attrs.items():
+                f.write(f"{key}: {value}\n")
+
+        for var_name in dataset.data_vars:
+            f.write(f"\n=== Variable: {var_name} ===\n")
+            for key, value in dataset[var_name].attrs.items():
+                f.write(f"{key}: {value}\n")
