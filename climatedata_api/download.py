@@ -834,10 +834,11 @@ def download_s2d():
         shutil.rmtree(tmpdir, ignore_errors=True)
         return response
 
-    if output_format == DOWNLOAD_NETCDF_FORMAT:
-        try:
-            with zipfile.ZipFile(zip_path, "w") as zipf:
-                for file_basename, ds in merged_slices.items():
+    # CSV or JSON output format
+    try:
+        with zipfile.ZipFile(zip_path, "w") as zipf:
+            for file_basename, ds in merged_slices.items():
+                if output_format == DOWNLOAD_NETCDF_FORMAT:
                     encodings = {}
                     for v in ds.data_vars:
                         encodings[v] = {"zlib": True}
@@ -846,53 +847,40 @@ def download_s2d():
                     nc_path = os.path.join(tmpdir, nc_filename)
                     ds.to_netcdf(nc_path, encoding=encodings, format='NETCDF4')
                     zipf.write(nc_path, arcname=nc_filename)
-        except Exception:
-            shutil.rmtree(tmpdir, ignore_errors=True)
-            raise
 
-        return send_file(
-            zip_path,
-            download_name=zip_filename,
-            mimetype="application/zip"
-        )
+                else:
+                    df = ds.to_dataframe()
+                    columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in ds] + \
+                                    [c for c in app.config['S2D_FORECAST_DATA_VAR_NAMES'] if c in ds] + \
+                                    [c for c in app.config['S2D_CLIMATO_DATA_VAR_NAMES'] if c in ds] + \
+                                    [c for c in app.config['S2D_SKILL_DATA_VAR_NAMES'] if c in ds]
+                    df = df.sort_values(by=['lat', 'lon'])
 
-    # CSV or JSON output format
-    try:
-        with zipfile.ZipFile(zip_path, "w") as zipf:
-            for file_basename, ds in merged_slices.items():
+                    if output_format == DOWNLOAD_CSV_FORMAT:
+                        csv_filename = f"{file_basename}.csv"
+                        csv_path = os.path.join(tmpdir, csv_filename)
+                        df.to_csv(csv_path, columns=columns_order, index=False)
+                        zipf.write(csv_path, arcname=csv_filename)
 
-                df = ds.to_dataframe()
-                columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in ds] + \
-                                [c for c in app.config['S2D_FORECAST_DATA_VAR_NAMES'] if c in ds] + \
-                                [c for c in app.config['S2D_CLIMATO_DATA_VAR_NAMES'] if c in ds] + \
-                                [c for c in app.config['S2D_SKILL_DATA_VAR_NAMES'] if c in ds]
-                df = df.sort_values(by=['lat', 'lon'])
+                    if output_format == DOWNLOAD_JSON_FORMAT:
+                        json_filename = f"{file_basename}.json"
+                        json_path = os.path.join(tmpdir, json_filename)
 
-                if output_format == DOWNLOAD_CSV_FORMAT:
-                    csv_filename = f"{file_basename}.csv"
-                    csv_path = os.path.join(tmpdir, csv_filename)
-                    df.to_csv(csv_path, columns=columns_order, index=False)
-                    zipf.write(csv_path, arcname=csv_filename)
+                        gdf = geopandas.GeoDataFrame(df, geometry=geopandas.points_from_xy(df.lon, df.lat)).reset_index(drop=True)
+                        gdf = gdf[columns_order + ['geometry']]
+                        gdf.to_file(json_path, driver="GeoJSON")
 
-                if output_format == DOWNLOAD_JSON_FORMAT:
-                    json_filename = f"{file_basename}.json"
-                    json_path = os.path.join(tmpdir, json_filename)
+                        zipf.write(json_path, arcname=json_filename)
 
-                    gdf = geopandas.GeoDataFrame(df, geometry=geopandas.points_from_xy(df.lon, df.lat)).reset_index(drop=True)
-                    gdf = gdf[columns_order + ['geometry']]
-                    gdf.to_file(json_path, driver="GeoJSON")
-
-                    zipf.write(json_path, arcname=json_filename)
-
-                metadata_filename = f"metadata_{file_basename}.txt"
-                metadata_path = os.path.join(tmpdir, metadata_filename)
-                write_metadata_file(metadata_path, ds)
-                zipf.write(metadata_path, arcname=metadata_filename)
+                    metadata_filename = f"metadata_{file_basename}.txt"
+                    metadata_path = os.path.join(tmpdir, metadata_filename)
+                    write_metadata_file(metadata_path, ds)
+                    zipf.write(metadata_path, arcname=metadata_filename)
     except Exception:
         shutil.rmtree(tmpdir, ignore_errors=True)
         raise
 
-    return send_file(zip_path, mimetype='application/zip', download_name=zip_filename)
+    return send_file(zip_path, download_name=zip_filename, as_attachment=True, mimetype="application/zip")
 
 
 def filter_dataset(dataset, points, bbox):
