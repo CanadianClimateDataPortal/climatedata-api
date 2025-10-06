@@ -58,6 +58,14 @@ class TestDownloadS2D:
                 month_sel = month.replace(year=1991)
             return expected_ds.sel(lat=lat, lon=lon, time=month_sel, method='nearest')[var].values
 
+        def get_related_dataset(var):
+            if var in S2D_FORECAST_DATA_VAR_NAMES:
+                return forecast_ds
+            elif var in S2D_CLIMATO_DATA_VAR_NAMES:
+                return climato_ds
+            else:
+                return skill_ds
+
         zip_bytes = io.BytesIO(response.data)
         with (zipfile.ZipFile(zip_bytes) as z):
             expected_file_basenames_and_months = {
@@ -88,8 +96,7 @@ class TestDownloadS2D:
                 with z.open(filename) as f:
                     month = next(
                         (v for k, v in expected_file_basenames_and_months.items() if k in filename),
-                        None,
-                    )
+                        None)
                     assert month is not None
 
                     if filename.endswith(ext_map[DOWNLOAD_NETCDF_FORMAT]):
@@ -113,6 +120,15 @@ class TestDownloadS2D:
                                         assert ds.sel(lat=lat, lon=lon)[var].values == get_expected_value(lat, lon, var, month)
                                     else:
                                         assert ds[var].sel(lat=lat, lon=lon).isnull().all()
+
+                        # Check metadata
+                        assert all([a in ds.attrs and forecast_ds.attrs[a] == ds.attrs[a] for a in forecast_ds.attrs])
+                        assert 'time_period' in ds.attrs and ds.attrs['time_period'] == filename.split('_')[2]
+                        for var in ds.data_vars:
+                            related_dataset = get_related_dataset(var)
+                            assert ds[var].attrs == related_dataset[var].attrs
+                        for coord in ds.coords:
+                            assert ds[coord].attrs == forecast_ds[coord].attrs
 
                     elif filename.endswith(ext_map[DOWNLOAD_CSV_FORMAT]):
                         df = pd.read_csv(f)
