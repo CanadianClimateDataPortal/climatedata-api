@@ -834,7 +834,6 @@ def download_s2d():
         shutil.rmtree(tmpdir, ignore_errors=True)
         return response
 
-    # CSV or JSON output format
     try:
         with zipfile.ZipFile(zip_path, "w") as zipf:
             for file_basename, ds in merged_slices.items():
@@ -849,7 +848,7 @@ def download_s2d():
                     zipf.write(nc_path, arcname=nc_filename)
 
                 else:
-                    df = ds.to_dataframe()
+                    df = ds.to_dataframe().dropna().reset_index()
                     columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in ds] + \
                                     [c for c in app.config['S2D_FORECAST_DATA_VAR_NAMES'] if c in ds] + \
                                     [c for c in app.config['S2D_CLIMATO_DATA_VAR_NAMES'] if c in ds] + \
@@ -876,9 +875,9 @@ def download_s2d():
                     metadata_path = os.path.join(tmpdir, metadata_filename)
                     write_metadata_file(metadata_path, ds)
                     zipf.write(metadata_path, arcname=metadata_filename)
-    except Exception:
+    except Exception as e:
         shutil.rmtree(tmpdir, ignore_errors=True)
-        raise
+        raise e
 
     return send_file(zip_path, download_name=zip_filename, as_attachment=True, mimetype="application/zip")
 
@@ -888,10 +887,26 @@ def filter_dataset(dataset, points, bbox):
     Returns a subset of the dataset according to the input points or bbox
     """
     if points:
-        subsetted_datasets = [[get_subset(dataset, p, adjust=False)] for p in points]
-        # Combined datasets into a single xarray with a region dimension that represents each unique (lat, lon) points
-        combined_ds = (xr.combine_nested(subsetted_datasets, ['region', 'time'], combine_attrs='override')
-                       .dropna('region', how='all'))
+        # Filter to the nearest concerned lat and lon values
+        nearest_points = [
+            (dataset.lat.sel(lat=lat, method="nearest").item(),
+             dataset.lon.sel(lon=lon, method="nearest").item())
+            for lat, lon in points
+        ]
+        used_lats = sorted(set(lat for lat, _ in nearest_points))
+        used_lons = sorted(set(lon for _, lon in nearest_points))
+
+        subset = dataset.sel(lat=used_lats, lon=used_lons)
+
+        # Filter the subset to only keep the data values that correspond exactly to the requested lat/lon combinations
+        mask = np.full((len(used_lats), len(used_lons)), False)
+
+        for lat, lon in nearest_points:
+            i = used_lats.index(lat)
+            j = used_lons.index(lon)
+            mask[i, j] = True
+
+        combined_ds = subset.where(mask)
     else:
         combined_ds = get_subset(dataset, bbox, adjust=False)
     return combined_ds
