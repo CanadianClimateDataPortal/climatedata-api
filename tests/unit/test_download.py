@@ -153,4 +153,39 @@ class TestDownloadS2D:
                             assert row["geometry"].x == row["lon"]
                             assert row["geometry"].y == row["lat"]
                     elif filename.endswith(".txt"):
-                        content = f.read()
+                        content = f.read().decode("utf-8")
+                        expected_content = f"""=== Dataset global attributes ===
+dataset: forecast
+time_period: {filename.split('_')[3]}
+
+=== Coordinate: lat ===
+coord_name: lat
+
+=== Coordinate: lon ===
+coord_name: lon
+
+=== Variable: prob_below_normal ===
+var_name: prob_below_normal
+
+=== Variable: prob_near_normal ===
+var_name: prob_near_normal
+
+=== Variable: prob_above_normal ===
+var_name: prob_above_normal
+
+=== Variable: cutoff_below_normal_p33 ===
+var_name: cutoff_below_normal_p33
+
+=== Variable: historical_median_p50 ===
+var_name: historical_median_p50
+
+=== Variable: cutoff_above_normal_p66 ===
+var_name: cutoff_above_normal_p66
+
+=== Variable: skill_CRPSS ===
+var_name: skill_CRPSS
+
+=== Variable: skill_level ===
+var_name: skill_level
+"""
+                        assert str(content) == expected_content
