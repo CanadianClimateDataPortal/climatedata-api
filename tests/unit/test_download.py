@@ -46,7 +46,7 @@ class TestDownloadS2D:
             expected_lons = [lon for lon in lons if bbox[1] <= lon <= bbox[3]]
             expected_points = [[lat, lon] for lat in expected_lats for lon in expected_lons]
 
-
+        # Send request to the endpoint to be tested
         payload = {
             "var": S2D_VARIABLE_AIR_TEMP,
             "format": file_format,
@@ -56,7 +56,6 @@ class TestDownloadS2D:
             **subset_payload,
         }
         response = client.post("/download-s2d", json=payload)
-
 
         expected_zip_filename = f"MeanTemp_{S2D_FILENAME_VALUES[forecast_type]}_Seasonal_ReleaseJan2025.zip"
         assert response.status_code == 200

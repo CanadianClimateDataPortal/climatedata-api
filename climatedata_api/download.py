@@ -746,65 +746,8 @@ def download_s2d():
     filename_freq = S2D_FILENAME_VALUES[freq]
     filename_release_date = calendar.month_abbr[ref_period.month] + str(ref_period.year)
 
-    # merge datasets into a single xarray
-    merged_slices = {}
-    for period_date in period_dates:
-        month = period_date.month
-
-        # Add missing metadata
-        if freq == S2D_FREQUENCY_MONTHLY:
-            time_period_abbr = calendar.month_abbr[month]
-        elif freq == S2D_FREQUENCY_SEASONAL:
-            time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 2) % 12]}"
-        # elif freq == 'decadal':
-            # pass
-        else:
-            raise ValueError(f"Invalid frequency `{freq}`")
-
-        basename = f"{filename_var}_{filename_forecast_type}_{time_period_abbr}_Release{filename_release_date}"
-
-        # Select only the times with this month in each dataset
-        month_slices = [
-            ds.sel(time=ds["time"].dt.month == month).drop_vars("time").squeeze("time", drop=True)
-            for ds in [forecast_slice, climatology_slice, skill_slice]
-        ]
-
-        # Merge them for this month
-        merged_slices[basename] = xr.merge(
-            month_slices,
-            combine_attrs='override'  # keeps attributes/metadata from the first dataset (forecast dataset in this case)
-        )
-
-        merged_slices[basename].attrs['time_period'] = time_period_abbr
-
-        # remove unused data variables depending of forecast_type
-        if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
-            merged_slices[basename] = merged_slices[basename].drop_vars([
-                'prob_unusually_high',
-                'prob_unusually_low',
-                'cutoff_unusually_high_p80',
-                'cutoff_unusually_low_p20'
-            ])
-        else:  # unusual
-            merged_slices[basename] = merged_slices[basename].drop_vars([
-                'prob_above_normal',
-                'prob_near_normal',
-                'prob_below_normal',
-                'cutoff_above_normal_p66',
-                'cutoff_below_normal_p33'
-            ])
-
-        # Update skill level with string values
-        new_data = merged_slices[basename]["skill_level"].copy().astype(object)
-
-        for i in np.ndindex(merged_slices[basename]["skill_level"].shape):
-            value = merged_slices[basename]["skill_level"].values[i]
-            if not np.isnan(value):
-                new_data.values[i] = S2D_SKILL_LEVEL_STR.get(int(value), None)
-            else:
-                new_data.values[i] = np.nan
-
-        merged_slices[basename]["skill_level"] = new_data
+    # merge xarrays to have one merged dataset per period
+    merged_slices = merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatology_slice, skill_slice)
 
     # Output data to .zip file
     zip_filename = f"{filename_var}_{filename_forecast_type}_{filename_freq}_Release{filename_release_date}.zip"
@@ -818,7 +761,9 @@ def download_s2d():
 
     try:
         with zipfile.ZipFile(zip_path, "w") as zipf:
-            for file_basename, ds in merged_slices.items():
+            for time_period_abbr, ds in merged_slices.items():
+                file_basename = f"{filename_var}_{filename_forecast_type}_{time_period_abbr}_Release{filename_release_date}"
+
                 if output_format == DOWNLOAD_NETCDF_FORMAT:
                     encodings = {}
                     for v in ds.data_vars:
@@ -910,3 +855,61 @@ def write_metadata_file(path, dataset):
             f.write(f"\n=== Variable: {var_name} ===\n")
             for key, value in dataset[var_name].attrs.items():
                 f.write(f"{key}: {value}\n")
+
+def merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatology_slice, skill_slice):
+    merged_slices = {}
+    for period_date in period_dates:
+        month = period_date.month
+
+        # Ajout des métadonnées manquantes
+        if freq == S2D_FREQUENCY_MONTHLY:
+            time_period_abbr = calendar.month_abbr[month]
+        elif freq == S2D_FREQUENCY_SEASONAL:
+            time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 2) % 12]}"
+        else:
+            raise ValueError(f"Invalid frequency `{freq}`")
+
+        # Sélectionne uniquement les temps correspondant à ce mois dans chaque dataset
+        month_slices = [
+            ds.sel(time=ds["time"].dt.month == month).drop_vars("time").squeeze("time", drop=True)
+            for ds in [forecast_slice, climatology_slice, skill_slice]
+        ]
+
+        # Fusionne pour ce mois
+        merged_slices[time_period_abbr] = xr.merge(
+            month_slices,
+            combine_attrs='override'
+        )
+
+        merged_slices[time_period_abbr].attrs['time_period'] = time_period_abbr
+
+        # Supprime les variables inutiles selon le type de prévision
+        if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
+            merged_slices[time_period_abbr] = merged_slices[time_period_abbr].drop_vars([
+                'prob_unusually_high',
+                'prob_unusually_low',
+                'cutoff_unusually_high_p80',
+                'cutoff_unusually_low_p20'
+            ])
+        else:
+            merged_slices[time_period_abbr] = merged_slices[time_period_abbr].drop_vars([
+                'prob_above_normal',
+                'prob_near_normal',
+                'prob_below_normal',
+                'cutoff_above_normal_p66',
+                'cutoff_below_normal_p33'
+            ])
+
+        # Met à jour le niveau de compétence avec des valeurs string
+        new_data = merged_slices[time_period_abbr]["skill_level"].copy().astype(object)
+
+        for i in np.ndindex(merged_slices[time_period_abbr]["skill_level"].shape):
+            value = merged_slices[time_period_abbr]["skill_level"].values[i]
+            if not np.isnan(value):
+                new_data.values[i] = S2D_SKILL_LEVEL_STR.get(int(value), None)
+            else:
+                new_data.values[i] = np.nan
+
+        merged_slices[time_period_abbr]["skill_level"] = new_data
+
+    return merged_slices
