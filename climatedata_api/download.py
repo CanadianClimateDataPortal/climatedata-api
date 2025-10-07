@@ -44,7 +44,10 @@ def get_subset(dataset, point, adjust, limit=None):
     if len(point) == 2:
         ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
     elif len(point) == 4:
-        ds = subset_bbox(dataset, lon_bnds=[point[1], point[3]], lat_bnds=[point[0], point[2]])
+        # make sure bbox is in the correct order
+        lat_min, lat_max = sorted([point[0], point[2]])
+        lon_min, lon_max = sorted([point[1], point[3]])
+        ds = subset_bbox(dataset, lat_bnds=[lat_min, lat_max], lon_bnds=[lon_min, lon_max])
     else:
         raise ValueError("point argument must be of length 2 or 4")
     if adjust:
@@ -708,7 +711,7 @@ def download_s2d():
         if var not in app.config['S2D_VARIABLES']:
             raise ValueError(f"Invalid variable `{var}`")
         if forecast_type not in app.config['S2D_FORECAST_TYPES']:
-            raise ValueError(f"Invalid forecast_type `{forecast_type}`")
+            raise ValueError(f"Invalid forecast type `{forecast_type}`")
         if freq not in app.config['S2D_FREQUENCIES']:
             raise ValueError(f"Invalid frequency `{freq}`")
 
@@ -728,8 +731,7 @@ def download_s2d():
     except (BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
-    release_date = get_s2d_release_date(var, freq)
-    ref_period = datetime.strptime(release_date, "%Y-%m-%d")
+    ref_period = datetime.strptime(get_s2d_release_date(var, freq), "%Y-%m-%d")
 
     try:
         forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, period_dates, ref_period)
@@ -740,14 +742,14 @@ def download_s2d():
     climatology_slice = filter_dataset(climatology_slice, points, bbox)
     skill_slice = filter_dataset(skill_slice, points, bbox)
 
+    # merge xarrays to have one merged dataset per period
+    merged_slices = merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatology_slice, skill_slice)
+
     # prepare filename placeholders values
     filename_var = S2D_FILENAME_VALUES[var]
     filename_forecast_type = S2D_FILENAME_VALUES[forecast_type]
     filename_freq = S2D_FILENAME_VALUES[freq]
     filename_release_date = calendar.month_abbr[ref_period.month] + str(ref_period.year)
-
-    # merge xarrays to have one merged dataset per period
-    merged_slices = merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatology_slice, skill_slice)
 
     # Output data to .zip file
     zip_filename = f"{filename_var}_{filename_forecast_type}_{filename_freq}_Release{filename_release_date}.zip"
@@ -826,7 +828,8 @@ def filter_dataset(dataset, points, bbox):
 
         subset = dataset.sel(lat=used_lats, lon=used_lons)
 
-        # Filter the subset to only keep the data values that correspond exactly to the requested lat/lon combinations
+        # Filter the subset to only keep the values that correspond exactly to the requested lat/lon combinations
+        # nan values are assigned to any lat/lon combinations that don't correspond to any requested point
         mask = np.full((len(used_lats), len(used_lons)), False)
 
         for lat, lon in nearest_points:
@@ -834,10 +837,10 @@ def filter_dataset(dataset, points, bbox):
             j = used_lons.index(lon)
             mask[i, j] = True
 
-        combined_ds = subset.where(mask)
-    else:
-        combined_ds = get_subset(dataset, bbox, adjust=False)
-    return combined_ds
+        filtered_ds = subset.where(mask)
+    else:  # bbox
+        filtered_ds = get_subset(dataset, bbox, adjust=False)
+    return filtered_ds
 
 
 def write_metadata_file(path, dataset):
@@ -861,7 +864,7 @@ def merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatol
     for period_date in period_dates:
         month = period_date.month
 
-        # Ajout des métadonnées manquantes
+        # Add missing metadata
         if freq == S2D_FREQUENCY_MONTHLY:
             time_period_abbr = calendar.month_abbr[month]
         elif freq == S2D_FREQUENCY_SEASONAL:
@@ -869,21 +872,21 @@ def merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatol
         else:
             raise ValueError(f"Invalid frequency `{freq}`")
 
-        # Sélectionne uniquement les temps correspondant à ce mois dans chaque dataset
+        # Select only the times corresponding to this month in each dataset
         month_slices = [
             ds.sel(time=ds["time"].dt.month == month).drop_vars("time").squeeze("time", drop=True)
             for ds in [forecast_slice, climatology_slice, skill_slice]
         ]
 
-        # Fusionne pour ce mois
+        # Merge data for this month
         merged_slices[time_period_abbr] = xr.merge(
             month_slices,
-            combine_attrs='override'
+            combine_attrs='override'  # Keep metadata from the first dataset (forecast_slice in this case)
         )
 
         merged_slices[time_period_abbr].attrs['time_period'] = time_period_abbr
 
-        # Supprime les variables inutiles selon le type de prévision
+        # Delete unusued variables according to the forecast type
         if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
             merged_slices[time_period_abbr] = merged_slices[time_period_abbr].drop_vars([
                 'prob_unusually_high',
@@ -900,7 +903,7 @@ def merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatol
                 'cutoff_below_normal_p33'
             ])
 
-        # Met à jour le niveau de compétence avec des valeurs string
+        # Update the skill level to use the string representation
         new_data = merged_slices[time_period_abbr]["skill_level"].copy().astype(object)
 
         for i in np.ndindex(merged_slices[time_period_abbr]["skill_level"].shape):

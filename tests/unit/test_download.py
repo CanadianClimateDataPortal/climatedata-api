@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 import xarray
 
+from climatedata_api.download import check_points_or_bbox
 from default_settings import S2D_VARIABLE_AIR_TEMP, S2D_FORECAST_TYPE_EXPECTED, S2D_FREQUENCY_SEASONAL, \
     DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_CSV_FORMAT, DOWNLOAD_JSON_FORMAT, S2D_FILENAME_VALUES, S2D_CLIMATO_DATA_VAR_NAMES, \
     S2D_FORECAST_DATA_VAR_NAMES, S2D_SKILL_LEVEL_STR, S2D_FORECAST_TYPE_UNUSUAL
@@ -23,8 +24,12 @@ class TestDownloadS2D:
     @patch("climatedata_api.download.get_s2d_release_date", return_value="2025-01-01")
     @patch("climatedata_api.utils.open_dataset_by_path")
     def test_valid_payload(self, mock_open_dataset, mock_release, test_app, client, file_format, subset_type, forecast_type):
-        lats = [43.0, 50.7, 61.04, 68.75, 73.82]
-        lons = [-140.0, -130, -120, -98.54, -61.11]
+        """
+        Tests the /download-s2d endpoint with various valid payload combinations (file format, points/bbox, and forecast type)
+        and checks the contents of the returned zip file.
+        """
+        lats = [43.0, 51.7, 61.04, 68.75, 73.82]
+        lons = [-141.0, -130, -120, -98.54, -61.11]
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
         skill_times = [f"1991-{month:02d}-01" for month in range(1, 13)]
         forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(lats, lons, forecast_times, skill_times, add_test_metadata=True)
@@ -32,7 +37,7 @@ class TestDownloadS2D:
         mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
 
         if subset_type == "points":
-            expected_points = [[50.7, -120], [50.7, -140], [68.75, -140], [73.82, -98.54]]
+            expected_points = [[51.7, -120], [51.7, -141], [68.75, -141], [73.82, -98.54]]
             expected_lats = sorted(set([pt[0] for pt in expected_points]))
             expected_lons = sorted(set([pt[1] for pt in expected_points]))
             subset_payload = {
@@ -212,3 +217,77 @@ class TestDownloadS2D:
                                 f"var_name: {var}\n"
                             )
                         assert content == expected_content
+
+    def test_bad_params(self, test_app, client):
+        """Should return 400 if a param is not allowed."""
+
+        initial_payload = {
+            "var": S2D_VARIABLE_AIR_TEMP,
+            "format": DOWNLOAD_NETCDF_FORMAT,
+            "forecast_type": S2D_FORECAST_TYPE_EXPECTED,
+            "frequency": S2D_FREQUENCY_SEASONAL,
+            "periods": ["2025-06", "2025-12"],
+            "points": [[51.7, -120]],
+        }
+
+        payload = initial_payload.copy()
+        payload["var"] = "wrong_var"
+        response = client.post("/download-s2d", json=payload)
+        assert response.status_code == 400
+        assert "Invalid variable" in response.text
+
+        payload = initial_payload.copy()
+        payload["format"] = "wrong_format"
+        response = client.post("/download-s2d", json=payload)
+        assert response.status_code == 400
+        assert "Invalid format" in response.text
+
+        payload = initial_payload.copy()
+        payload["forecast_type"] = "wrong_forecast_type"
+        response = client.post("/download-s2d", json=payload)
+        assert response.status_code == 400
+        assert "Invalid forecast type" in response.text
+
+        payload = initial_payload.copy()
+        payload["frequency"] = "wrong_freq"
+        response = client.post("/download-s2d", json=payload)
+        assert response.status_code == 400
+        assert "Invalid frequency" in response.text
+
+        payload = initial_payload.copy()
+        for p in [["123-456"], ["2025-13"], ["2025/06"], ["2025-06-01"], ["June-2025"]]:
+            payload["periods"] = p
+            response = client.post("/download-s2d", json=payload)
+            assert response.status_code == 400
+            assert "Invalid periods" in response.text
+
+    def test_points_and_bbox(self, test_app):
+        with pytest.raises(ValueError) as excinfo:
+            check_points_or_bbox([[1, 2]], [1, 2, 3, 4])
+        assert "Can't request both points and bbox" in str(excinfo.value)
+
+    def test_too_many_points(self, test_app):
+        test_app.config["DOWNLOAD_POINTS_LIMIT"] = 10
+        with pytest.raises(ValueError) as excinfo:
+            check_points_or_bbox([[1, 2]] * 11, None)
+        assert "Too many points requested" in str(excinfo.value)
+
+    def test_invalid_point_length(self, test_app):
+        with pytest.raises(ValueError) as excinfo:
+            check_points_or_bbox([[1, 2, 3]], None)
+        assert "Points must have exactly 2 coordinates" in str(excinfo.value)
+
+    def test_bbox_invalid_length(self, test_app):
+        with pytest.raises(ValueError) as excinfo:
+            check_points_or_bbox(None, [1, 2, 3])
+        assert "bbox must be an array of length 4" in str(excinfo.value)
+
+    def test_neither_points_nor_bbox(self, test_app):
+        with pytest.raises(ValueError) as excinfo:
+            check_points_or_bbox(None, None)
+        assert "Neither points or bbox requested" in str(excinfo.value)
+
+    def test_empty_points(self, test_app):
+        with pytest.raises(ValueError) as excinfo:
+            check_points_or_bbox([], None)
+        assert "Neither points or bbox requested" in str(excinfo.value)

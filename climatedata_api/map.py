@@ -274,8 +274,8 @@ def get_s2d_gridded_values(lat, lon, var, freq, period):
     e.g. : curl 'http://localhost:5000/get-s2d-gridded-values/61.04/-61.11?/air_temp/seasonal?period=2025-07'
     """
     try:
-        lati = float(lat)
-        loni = float(lon)
+        latitude = float(lat)
+        longitude = float(lon)
         if var not in app.config['S2D_VARIABLES']:
             raise ValueError
         if freq not in app.config['S2D_FREQUENCIES']:
@@ -284,17 +284,16 @@ def get_s2d_gridded_values(lat, lon, var, freq, period):
     except (ValueError, BadRequestKeyError):
         return "Bad request", 400
 
-    release_date = get_s2d_release_date(var, freq)
-    ref_period = datetime.strptime(release_date, "%Y-%m-%d")
+    ref_period = datetime.strptime(get_s2d_release_date(var, freq), "%Y-%m-%d")
 
     try:
         forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, [period_date], ref_period)
     except ValueError as e:
         return e, 400
 
-    forecast_slice = forecast_slice.sel(lon=loni, lat=lati, method='nearest')
-    climatology_slice = climatology_slice.sel(lon=loni, lat=lati, method='nearest')
-    skill_slice = skill_slice.sel(lon=loni, lat=lati, method='nearest')
+    forecast_slice = forecast_slice.sel(lon=longitude, lat=latitude, method='nearest')
+    climatology_slice = climatology_slice.sel(lon=longitude, lat=latitude, method='nearest')
+    skill_slice = skill_slice.sel(lon=longitude, lat=latitude, method='nearest')
 
     values = {}
     for dataset in [forecast_slice, climatology_slice, skill_slice]:
