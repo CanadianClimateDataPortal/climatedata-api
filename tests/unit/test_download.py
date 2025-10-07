@@ -30,15 +30,15 @@ class TestDownloadS2D:
         mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
 
         points = [[50.7, -120], [50.7, -140], [68.75, -140], [73.82, -98.54]]
-        response = client.post("/download-s2d", json=
-            { 'var' : S2D_VARIABLE_AIR_TEMP,
-              'format' : file_format,
-              'points': points,
-              'forecast_type': S2D_FORECAST_TYPE_EXPECTED,
-              'frequency': S2D_FREQUENCY_SEASONAL,
-              'periods': ['2025-06', '2025-12']
-            }
-        )
+        payload = {
+            "var": S2D_VARIABLE_AIR_TEMP,
+            "format": file_format,
+            "points": points,
+            "forecast_type": S2D_FORECAST_TYPE_EXPECTED,
+            "frequency": S2D_FREQUENCY_SEASONAL,
+            "periods": ["2025-06", "2025-12"],
+        }
+        response = client.post("/download-s2d", json=payload)
 
         expected_zip_filename = "MeanTemp_ExpectedCond_Seasonal_ReleaseJan2025.zip"
         assert response.status_code == 200
@@ -56,7 +56,7 @@ class TestDownloadS2D:
             else:
                 expected_ds = skill_ds
                 month_sel = month.replace(year=1991)
-            return expected_ds.sel(lat=lat, lon=lon, time=month_sel, method='nearest')[var].values
+            return expected_ds.sel(lat=lat, lon=lon, time=month_sel, method="nearest")[var].values
 
         def get_related_dataset(var):
             if var in S2D_FORECAST_DATA_VAR_NAMES:
@@ -67,15 +67,15 @@ class TestDownloadS2D:
                 return skill_ds
 
         zip_bytes = io.BytesIO(response.data)
-        with (zipfile.ZipFile(zip_bytes) as z):
+        with zipfile.ZipFile(zip_bytes) as z:
             expected_file_basenames_and_months = {
                 "MeanTemp_ExpectedCond_Dec-Feb_ReleaseJan2025": datetime.datetime(2025, 12, 1),
-                "MeanTemp_ExpectedCond_Jun-Aug_ReleaseJan2025": datetime.datetime(2025, 6, 1)
+                "MeanTemp_ExpectedCond_Jun-Aug_ReleaseJan2025": datetime.datetime(2025, 6, 1),
             }
             ext_map = {
                 DOWNLOAD_NETCDF_FORMAT: ".nc",
                 DOWNLOAD_CSV_FORMAT: ".csv",
-                DOWNLOAD_JSON_FORMAT: ".json"
+                DOWNLOAD_JSON_FORMAT: ".json",
             }
             expected_filenames = [f"{name}{ext_map[file_format]}" for name in expected_file_basenames_and_months]
             if file_format in [DOWNLOAD_CSV_FORMAT, DOWNLOAD_JSON_FORMAT]:
@@ -86,9 +86,18 @@ class TestDownloadS2D:
             # Check expected files
             assert set(file_list) == set(expected_filenames)
 
-            expected_coords = ['lat', 'lon']
-            expected_data_vars = ['prob_below_normal', 'prob_near_normal', 'prob_above_normal', 'cutoff_below_normal_p33', 'historical_median_p50', 'cutoff_above_normal_p66', 'skill_CRPSS', 'skill_level']
-            expected_lats = [50.7,  68.75, 73.82]
+            expected_coords = ["lat", "lon"]
+            expected_data_vars = [
+                "prob_below_normal",
+                "prob_near_normal",
+                "prob_above_normal",
+                "cutoff_below_normal_p33",
+                "historical_median_p50",
+                "cutoff_above_normal_p66",
+                "skill_CRPSS",
+                "skill_level",
+            ]
+            expected_lats = [50.7, 68.75, 73.82]
             expected_lons = [-120.0, -140.0, -98.54]
 
             # Check contents of each file
@@ -105,12 +114,10 @@ class TestDownloadS2D:
                             tmp.flush()
                             ds = xarray.open_dataset(tmp.name)
 
-                        assert all([k in ds.coords for k in expected_coords]) and len(ds.coords) == len(expected_coords)
-                        assert all([k in ds for k in expected_data_vars]) and len(ds) == len(expected_data_vars)
-
+                        assert set(ds.coords) == set(expected_coords)
+                        assert set(ds.data_vars) == set(expected_data_vars)
                         assert set(ds["lat"].values) == set(expected_lats)
                         assert set(ds["lon"].values) == set(expected_lons)
-
                         assert ds.dims == {"lat": len(expected_lats), "lon": len(expected_lons)}
 
                         for lat in ds["lat"].values:
@@ -137,11 +144,10 @@ class TestDownloadS2D:
 
                     elif filename.endswith(ext_map[DOWNLOAD_CSV_FORMAT]):
                         df = pd.read_csv(f)
-
                         expected_columns = expected_coords + expected_data_vars
-                        assert all([k in df.columns for k in expected_columns]) and len(df.columns) == len(expected_columns)
+                        assert set(df.columns) == set(expected_columns)
 
-                        for index, row in df.iterrows():
+                        for _, row in df.iterrows():
                             for var in expected_data_vars:
                                 if var == "skill_level":
                                     assert row[var] == S2D_SKILL_LEVEL_STR[get_expected_value(row.lat, row.lon, var, month).item()]
@@ -150,11 +156,10 @@ class TestDownloadS2D:
 
                     elif filename.endswith(ext_map[DOWNLOAD_JSON_FORMAT]):
                         gdf = geopandas.read_file(io.BytesIO(f.read()))
-
                         expected_columns = expected_coords + expected_data_vars + ["geometry"]
-                        assert all([k in gdf.columns for k in expected_columns]) and len(gdf.columns) == len(expected_columns)
+                        assert set(gdf.columns) == set(expected_columns)
 
-                        for index, row in gdf.iterrows():
+                        for _, row in gdf.iterrows():
                             for var in expected_data_vars:
                                 if var == "skill_level":
                                     assert row[var] == S2D_SKILL_LEVEL_STR[get_expected_value(row.lat, row.lon, var, month).item()]
@@ -163,40 +168,32 @@ class TestDownloadS2D:
                             assert row["geometry"].geom_type == "Point"
                             assert row["geometry"].x == row["lon"]
                             assert row["geometry"].y == row["lat"]
+
                     elif filename.endswith(".txt"):
                         content = f.read().decode("utf-8")
-                        expected_content = f"""=== Dataset global attributes ===
-dataset: forecast
-time_period: {filename.split('_')[3]}
-
-=== Coordinate: lat ===
-coord_name: lat
-
-=== Coordinate: lon ===
-coord_name: lon
-
-=== Variable: prob_below_normal ===
-var_name: prob_below_normal
-
-=== Variable: prob_near_normal ===
-var_name: prob_near_normal
-
-=== Variable: prob_above_normal ===
-var_name: prob_above_normal
-
-=== Variable: cutoff_below_normal_p33 ===
-var_name: cutoff_below_normal_p33
-
-=== Variable: historical_median_p50 ===
-var_name: historical_median_p50
-
-=== Variable: cutoff_above_normal_p66 ===
-var_name: cutoff_above_normal_p66
-
-=== Variable: skill_CRPSS ===
-var_name: skill_CRPSS
-
-=== Variable: skill_level ===
-var_name: skill_level
-"""
-                        assert str(content) == expected_content
+                        expected_content = (
+                            "=== Dataset global attributes ===\n"
+                            "dataset: forecast\n"
+                            f"time_period: {filename.split('_')[3]}\n\n"
+                            "=== Coordinate: lat ===\n"
+                            "coord_name: lat\n\n"
+                            "=== Coordinate: lon ===\n"
+                            "coord_name: lon\n\n"
+                            "=== Variable: prob_below_normal ===\n"
+                            "var_name: prob_below_normal\n\n"
+                            "=== Variable: prob_near_normal ===\n"
+                            "var_name: prob_near_normal\n\n"
+                            "=== Variable: prob_above_normal ===\n"
+                            "var_name: prob_above_normal\n\n"
+                            "=== Variable: cutoff_below_normal_p33 ===\n"
+                            "var_name: cutoff_below_normal_p33\n\n"
+                            "=== Variable: historical_median_p50 ===\n"
+                            "var_name: historical_median_p50\n\n"
+                            "=== Variable: cutoff_above_normal_p66 ===\n"
+                            "var_name: cutoff_above_normal_p66\n\n"
+                            "=== Variable: skill_CRPSS ===\n"
+                            "var_name: skill_CRPSS\n\n"
+                            "=== Variable: skill_level ===\n"
+                            "var_name: skill_level\n"
+                        )
+                        assert content == expected_content
