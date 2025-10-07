@@ -12,7 +12,7 @@ import xarray
 
 from default_settings import S2D_VARIABLE_AIR_TEMP, S2D_FORECAST_TYPE_EXPECTED, S2D_FREQUENCY_SEASONAL, \
     DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_CSV_FORMAT, DOWNLOAD_JSON_FORMAT, S2D_FILENAME_VALUES, S2D_CLIMATO_DATA_VAR_NAMES, \
-    S2D_FORECAST_DATA_VAR_NAMES
+    S2D_FORECAST_DATA_VAR_NAMES, S2D_SKILL_LEVEL_STR
 from tests.unit.utils import generate_s2d_test_datasets
 
 
@@ -117,9 +117,14 @@ class TestDownloadS2D:
                             for lon in ds["lon"].values:
                                 for var in expected_data_vars:
                                     if [lat, lon] in points:
-                                        assert ds.sel(lat=lat, lon=lon)[var].values == get_expected_value(lat, lon, var, month)
+                                        if var == "skill_level":
+                                            assert ds.sel(lat=lat, lon=lon)[var].values == S2D_SKILL_LEVEL_STR[get_expected_value(lat, lon, var, month).item()]
+                                        else:
+                                            assert ds.sel(lat=lat, lon=lon)[var].values == get_expected_value(lat, lon, var, month)
                                     else:
-                                        assert ds[var].sel(lat=lat, lon=lon).isnull().all()
+                                        value = ds[var].sel(lat=lat, lon=lon).item()
+                                        # Check for null values (for string or float data)
+                                        assert value in ("", None) or (isinstance(value, float) and numpy.isnan(value))
 
                         # Check metadata
                         assert all([a in ds.attrs and forecast_ds.attrs[a] == ds.attrs[a] for a in forecast_ds.attrs])
@@ -138,7 +143,10 @@ class TestDownloadS2D:
 
                         for index, row in df.iterrows():
                             for var in expected_data_vars:
-                                assert numpy.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
+                                if var == "skill_level":
+                                    assert row[var] == S2D_SKILL_LEVEL_STR[get_expected_value(row.lat, row.lon, var, month).item()]
+                                else:
+                                    assert numpy.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
 
                     elif filename.endswith(ext_map[DOWNLOAD_JSON_FORMAT]):
                         gdf = geopandas.read_file(io.BytesIO(f.read()))
@@ -148,7 +156,10 @@ class TestDownloadS2D:
 
                         for index, row in gdf.iterrows():
                             for var in expected_data_vars:
-                                assert numpy.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
+                                if var == "skill_level":
+                                    assert row[var] == S2D_SKILL_LEVEL_STR[get_expected_value(row.lat, row.lon, var, month).item()]
+                                else:
+                                    assert numpy.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
                             assert row["geometry"].geom_type == "Point"
                             assert row["geometry"].x == row["lon"]
                             assert row["geometry"].y == row["lat"]

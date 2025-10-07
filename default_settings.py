@@ -286,6 +286,13 @@ S2D_SKILL_DATA_VAR_NAMES = [
     "skill_level"
 ]
 
+S2D_SKILL_LEVEL_STR = {
+    0: 'no skill',
+    1: 'low',
+    2: 'medium',
+    3: 'high'
+}
+
 S2D_FILENAME_VALUES = {
     S2D_VARIABLE_AIR_TEMP: 'MeanTemp',
     S2D_VARIABLE_PRECIP_ACCUM: 'TotalPrecip',

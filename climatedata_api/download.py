@@ -22,7 +22,7 @@ from werkzeug.exceptions import BadRequestKeyError
 from climatedata_api.map import get_s2d_release_date
 from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path
 from default_settings import DOWNLOAD_CSV_FORMAT, DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_JSON_FORMAT, S2D_FREQUENCY_MONTHLY, \
-    S2D_FREQUENCY_SEASONAL, S2D_FORECAST_TYPE_EXPECTED, S2D_FILENAME_VALUES
+    S2D_FREQUENCY_SEASONAL, S2D_FORECAST_TYPE_EXPECTED, S2D_FILENAME_VALUES, S2D_SKILL_LEVEL_STR
 
 
 def float_format_dataframe(df, decimals):
@@ -824,6 +824,18 @@ def download_s2d():
                 'cutoff_below_normal_p33'
             ])
 
+        # Update skill level with string values
+        new_data = merged_slices[basename]["skill_level"].copy().astype(object)
+
+        for i in np.ndindex(merged_slices[basename]["skill_level"].shape):
+            value = merged_slices[basename]["skill_level"].values[i]
+            if not np.isnan(value):
+                new_data.values[i] = S2D_SKILL_LEVEL_STR.get(int(value), None)
+            else:
+                new_data.values[i] = np.nan
+
+        merged_slices[basename]["skill_level"] = new_data
+
     # Output data to .zip file
     zip_filename = f"{filename_var}_{filename_forecast_type}_{filename_freq}_Release{filename_release_date}.zip"
     tmpdir = tempfile.mkdtemp()
@@ -840,7 +852,8 @@ def download_s2d():
                 if output_format == DOWNLOAD_NETCDF_FORMAT:
                     encodings = {}
                     for v in ds.data_vars:
-                        encodings[v] = {"zlib": True}
+                        if v != "skill_level":  # compression is not supported on string variables
+                            encodings[v] = {"zlib": True}
 
                     nc_filename = f"{file_basename}.nc"
                     nc_path = os.path.join(tmpdir, nc_filename)
