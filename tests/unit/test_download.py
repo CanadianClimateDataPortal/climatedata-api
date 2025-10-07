@@ -12,16 +12,17 @@ import xarray
 
 from default_settings import S2D_VARIABLE_AIR_TEMP, S2D_FORECAST_TYPE_EXPECTED, S2D_FREQUENCY_SEASONAL, \
     DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_CSV_FORMAT, DOWNLOAD_JSON_FORMAT, S2D_FILENAME_VALUES, S2D_CLIMATO_DATA_VAR_NAMES, \
-    S2D_FORECAST_DATA_VAR_NAMES, S2D_SKILL_LEVEL_STR
+    S2D_FORECAST_DATA_VAR_NAMES, S2D_SKILL_LEVEL_STR, S2D_FORECAST_TYPE_UNUSUAL
 from tests.unit.utils import generate_s2d_test_datasets
 
 
 class TestDownloadS2D:
     @pytest.mark.parametrize("file_format", [DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_CSV_FORMAT, DOWNLOAD_JSON_FORMAT])
     @pytest.mark.parametrize("subset_type", ["points", "bbox"])
+    @pytest.mark.parametrize("forecast_type", [S2D_FORECAST_TYPE_EXPECTED, S2D_FORECAST_TYPE_UNUSUAL])
     @patch("climatedata_api.download.get_s2d_release_date", return_value="2025-01-01")
     @patch("climatedata_api.download.open_dataset_by_path")
-    def test_valid_payload(self, mock_open_dataset, mock_release, test_app, client, file_format, subset_type):
+    def test_valid_payload(self, mock_open_dataset, mock_release, test_app, client, file_format, subset_type, forecast_type):
         lats = [43.0, 50.7, 61.04, 68.75, 73.82]
         lons = [-140.0, -130, -120, -98.54, -61.11]
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
@@ -49,14 +50,15 @@ class TestDownloadS2D:
         payload = {
             "var": S2D_VARIABLE_AIR_TEMP,
             "format": file_format,
-            "forecast_type": S2D_FORECAST_TYPE_EXPECTED,
+            "forecast_type": forecast_type,
             "frequency": S2D_FREQUENCY_SEASONAL,
             "periods": ["2025-06", "2025-12"],
             **subset_payload,
         }
         response = client.post("/download-s2d", json=payload)
 
-        expected_zip_filename = "MeanTemp_ExpectedCond_Seasonal_ReleaseJan2025.zip"
+
+        expected_zip_filename = f"MeanTemp_{S2D_FILENAME_VALUES[forecast_type]}_Seasonal_ReleaseJan2025.zip"
         assert response.status_code == 200
         assert response.mimetype == "application/zip"
         assert "attachment" in response.headers["Content-Disposition"]
@@ -85,8 +87,8 @@ class TestDownloadS2D:
         zip_bytes = io.BytesIO(response.data)
         with zipfile.ZipFile(zip_bytes) as z:
             expected_file_basenames_and_months = {
-                "MeanTemp_ExpectedCond_Dec-Feb_ReleaseJan2025": datetime.datetime(2025, 12, 1),
-                "MeanTemp_ExpectedCond_Jun-Aug_ReleaseJan2025": datetime.datetime(2025, 6, 1),
+                f"MeanTemp_{S2D_FILENAME_VALUES[forecast_type]}_Dec-Feb_ReleaseJan2025": datetime.datetime(2025, 12, 1),
+                f"MeanTemp_{S2D_FILENAME_VALUES[forecast_type]}_Jun-Aug_ReleaseJan2025": datetime.datetime(2025, 6, 1),
             }
             ext_map = {
                 DOWNLOAD_NETCDF_FORMAT: ".nc",
@@ -103,16 +105,27 @@ class TestDownloadS2D:
             assert set(file_list) == set(expected_filenames)
 
             expected_coords = ["lat", "lon"]
-            expected_data_vars = [
-                "prob_below_normal",
-                "prob_near_normal",
-                "prob_above_normal",
-                "cutoff_below_normal_p33",
-                "historical_median_p50",
-                "cutoff_above_normal_p66",
-                "skill_CRPSS",
-                "skill_level",
-            ]
+            if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
+                expected_data_vars = [
+                    "prob_below_normal",
+                    "prob_near_normal",
+                    "prob_above_normal",
+                    "cutoff_below_normal_p33",
+                    "historical_median_p50",
+                    "cutoff_above_normal_p66",
+                    "skill_CRPSS",
+                    "skill_level",
+                ]
+            else:  # unusual
+                expected_data_vars = [
+                    'prob_unusually_low',
+                    'prob_unusually_high',
+                    'cutoff_unusually_low_p20',
+                    "historical_median_p50",
+                    'cutoff_unusually_high_p80',
+                    "skill_CRPSS",
+                    "skill_level",
+                ]
 
             # Check contents of each file
             for filename in file_list:
@@ -192,22 +205,11 @@ class TestDownloadS2D:
                             "=== Coordinate: lat ===\n"
                             "coord_name: lat\n\n"
                             "=== Coordinate: lon ===\n"
-                            "coord_name: lon\n\n"
-                            "=== Variable: prob_below_normal ===\n"
-                            "var_name: prob_below_normal\n\n"
-                            "=== Variable: prob_near_normal ===\n"
-                            "var_name: prob_near_normal\n\n"
-                            "=== Variable: prob_above_normal ===\n"
-                            "var_name: prob_above_normal\n\n"
-                            "=== Variable: cutoff_below_normal_p33 ===\n"
-                            "var_name: cutoff_below_normal_p33\n\n"
-                            "=== Variable: historical_median_p50 ===\n"
-                            "var_name: historical_median_p50\n\n"
-                            "=== Variable: cutoff_above_normal_p66 ===\n"
-                            "var_name: cutoff_above_normal_p66\n\n"
-                            "=== Variable: skill_CRPSS ===\n"
-                            "var_name: skill_CRPSS\n\n"
-                            "=== Variable: skill_level ===\n"
-                            "var_name: skill_level\n"
+                            "coord_name: lon\n"
                         )
+                        for var in expected_data_vars:
+                            expected_content += (
+                                f"\n=== Variable: {var} ===\n"
+                                f"var_name: {var}\n"
+                            )
                         assert content == expected_content
