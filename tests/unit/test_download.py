@@ -261,6 +261,7 @@ class TestDownloadS2D:
             assert response.status_code == 400
             assert "Invalid periods" in response.text
 
+class TestCheckPointsOrBbox:
     def test_points_and_bbox(self, test_app):
         with pytest.raises(ValueError) as excinfo:
             check_points_or_bbox([[1, 2]], [1, 2, 3, 4])
