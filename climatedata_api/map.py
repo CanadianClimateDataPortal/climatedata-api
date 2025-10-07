@@ -6,7 +6,8 @@ from flask import current_app as app
 from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
 
-from climatedata_api.utils import open_dataset, open_dataset_by_path, decode_compressed_points
+from climatedata_api.utils import open_dataset, open_dataset_by_path, decode_compressed_points, \
+    load_s2d_datasets_by_periods
 import pickle
 import numpy as np
 from sentry_sdk import capture_message
@@ -283,38 +284,17 @@ def get_s2d_gridded_values(lat, lon, var, freq, period):
     except (ValueError, BadRequestKeyError):
         return "Bad request", 400
 
-    # Load forecast data
-    forecast_dataset = open_dataset_by_path(app.config['NETCDF_S2D_FORECAST_FILENAME_FORMATS'].format(
-        root=app.config['DATASETS_ROOT'],
-        var=var,
-        freq=freq
-    ))
-    if not ((forecast_dataset['time'].dt.year == period_date.year) &
-            (forecast_dataset['time'].dt.month == period_date.month)).any():
-        return f"Bad request: period {period_date} not available in forecast dataset", 400
-    forecast_slice = forecast_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=period_date)
-
-    # Load climatology data
-    climatology_dataset = open_dataset_by_path(app.config['NETCDF_S2D_CLIMATOLOGY_FILENAME_FORMATS'].format(
-        root=app.config['DATASETS_ROOT'],
-        var=var,
-        freq=freq
-    ))
-    climatology_period_date = period_date.replace(year=1991)
-    climatology_slice = climatology_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=climatology_period_date)
-
-    # Load skill data
     release_date = get_s2d_release_date(var, freq)
-    ref_period = datetime.strptime(release_date, "%Y-%m-%d").month
-    skill_dataset = open_dataset_by_path(app.config['NETCDF_S2D_SKILL_FILENAME_FORMATS'].format(
-        root=app.config['DATASETS_ROOT'],
-        var=var,
-        freq=freq,
-        ref_period=ref_period
-    ))
-    if period_date.month not in skill_dataset['time'].dt.month.values:
-        return f"Bad request: period {period_date} not available in skill dataset", 400
-    skill_slice = skill_dataset.sel(lon=loni, lat=lati, method='nearest').sel(time=skill_dataset['time'].dt.month == period_date.month)
+    ref_period = datetime.strptime(release_date, "%Y-%m-%d")
+
+    try:
+        forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, [period_date], ref_period)
+    except ValueError as e:
+        return e, 400
+
+    forecast_slice = forecast_slice.sel(lon=loni, lat=lati, method='nearest')
+    climatology_slice = climatology_slice.sel(lon=loni, lat=lati, method='nearest')
+    skill_slice = skill_slice.sel(lon=loni, lat=lati, method='nearest')
 
     values = {}
     for dataset in [forecast_slice, climatology_slice, skill_slice]:

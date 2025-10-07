@@ -34,7 +34,7 @@ class TestGetS2DReleaseDate:
 
 class TestGetS2DGriddedValues:
     @patch("climatedata_api.map.get_s2d_release_date", return_value="2025-01-01")
-    @patch("climatedata_api.map.open_dataset_by_path")
+    @patch("climatedata_api.utils.open_dataset_by_path")
     def test_valid_data(self, mock_open_dataset, mock_release, test_app):
         lats = [43.0, 61.04]
         lons = [-140.0, -61.11]
@@ -87,7 +87,7 @@ class TestGetS2DGriddedValues:
         assert response == "Bad request"
 
     @patch("climatedata_api.map.get_s2d_release_date", return_value="2025-01-01")
-    @patch("climatedata_api.map.open_dataset_by_path")
+    @patch("climatedata_api.utils.open_dataset_by_path")
     def test_missing_time(self, mock_open_dataset, mock_release, test_app):
         lats = [43.0, 61.04]
         lons = [-140.0, -61.11]
@@ -100,10 +100,10 @@ class TestGetS2DGriddedValues:
         response, status = get_s2d_gridded_values(lats[0], lons[0], S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL, period=test_period)
 
         assert status == 400
-        assert "not available in forecast dataset" in response
+        assert isinstance(response, ValueError) and "not available in forecast dataset" in str(response)
 
         mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
         test_period = "2025-12"
         response, status = get_s2d_gridded_values(lats[0], lons[0], S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL, period=test_period)
         assert status == 400
-        assert "not available in skill dataset" in response
+        assert isinstance(response, ValueError) and "not available in skill dataset" in str(response)

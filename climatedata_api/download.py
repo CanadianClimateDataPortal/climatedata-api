@@ -20,7 +20,7 @@ from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
 
 from climatedata_api.map import get_s2d_release_date
-from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path
+from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path, load_s2d_datasets_by_periods
 from default_settings import DOWNLOAD_CSV_FORMAT, DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_JSON_FORMAT, S2D_FREQUENCY_MONTHLY, \
     S2D_FREQUENCY_SEASONAL, S2D_FORECAST_TYPE_EXPECTED, S2D_FILENAME_VALUES, S2D_SKILL_LEVEL_STR
 
@@ -728,43 +728,13 @@ def download_s2d():
     except (BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
-    # TODO: refactor load functions?
-    # Load forecast data
-    forecast_dataset = open_dataset_by_path(app.config['NETCDF_S2D_FORECAST_FILENAME_FORMATS'].format(
-        root=app.config['DATASETS_ROOT'],
-        var=var,
-        freq=freq
-    ))
-    for period_date in period_dates:
-        if not ((forecast_dataset['time'].dt.year == period_date.year) &
-                (forecast_dataset['time'].dt.month == period_date.month)).any():
-            return f"Bad request: period {period_date} not available in forecast dataset", 400
-    forecast_slice = forecast_dataset.sel(time=period_dates)
-
-    # Load climatology data
-    climatology_dataset = open_dataset_by_path(app.config['NETCDF_S2D_CLIMATOLOGY_FILENAME_FORMATS'].format(
-        root=app.config['DATASETS_ROOT'],
-        var=var,
-        freq=freq
-    ))
-    climatology_period_dates = []
-    for period_date in period_dates:
-        climatology_period_dates.append(period_date.replace(year=1991))
-    climatology_slice = climatology_dataset.sel(time=climatology_period_dates)
-
-    # Load skill data
     release_date = get_s2d_release_date(var, freq)
     ref_period = datetime.strptime(release_date, "%Y-%m-%d")
-    skill_dataset = open_dataset_by_path(app.config['NETCDF_S2D_SKILL_FILENAME_FORMATS'].format(
-        root=app.config['DATASETS_ROOT'],
-        var=var,
-        freq=freq,
-        ref_period=ref_period.month
-    ))
-    for period_date in period_dates:
-        if period_date.month not in skill_dataset['time'].dt.month.values:
-            return f"Bad request: period {period_date} not available in skill dataset", 400
-    skill_slice = skill_dataset.sel(time=skill_dataset['time'].dt.month.isin([d.month for d in period_dates]))
+
+    try:
+        forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, period_dates, ref_period)
+    except ValueError as e:
+        return e, 400
 
     forecast_slice = filter_dataset(forecast_slice, points, bbox)
     climatology_slice = filter_dataset(climatology_slice, points, bbox)

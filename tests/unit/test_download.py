@@ -21,7 +21,7 @@ class TestDownloadS2D:
     @pytest.mark.parametrize("subset_type", ["points", "bbox"])
     @pytest.mark.parametrize("forecast_type", [S2D_FORECAST_TYPE_EXPECTED, S2D_FORECAST_TYPE_UNUSUAL])
     @patch("climatedata_api.download.get_s2d_release_date", return_value="2025-01-01")
-    @patch("climatedata_api.download.open_dataset_by_path")
+    @patch("climatedata_api.utils.open_dataset_by_path")
     def test_valid_payload(self, mock_open_dataset, mock_release, test_app, client, file_format, subset_type, forecast_type):
         lats = [43.0, 50.7, 61.04, 68.75, 73.82]
         lons = [-140.0, -130, -120, -98.54, -61.11]

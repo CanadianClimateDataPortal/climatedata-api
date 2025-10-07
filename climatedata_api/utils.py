@@ -8,6 +8,8 @@ import pickle
 import numpy as np
 import zipfile
 
+from werkzeug.exceptions import BadRequest
+
 
 def open_dataset(dataset_name, filetype, var, freq, period=None, partition=None):
     """
@@ -209,3 +211,41 @@ def make_zip(content):
             zip_file.writestr(filename, data, zipfile.ZIP_DEFLATED)
     buffer.seek(0)
     return buffer
+
+def load_s2d_datasets_by_periods(var, freq, period_dates, ref_period):
+    # Load forecast data
+    forecast_dataset = open_dataset_by_path(app.config['NETCDF_S2D_FORECAST_FILENAME_FORMATS'].format(
+        root=app.config['DATASETS_ROOT'],
+        var=var,
+        freq=freq
+    ))
+    for period_date in period_dates:
+        if not ((forecast_dataset['time'].dt.year == period_date.year) &
+                (forecast_dataset['time'].dt.month == period_date.month)).any():
+            raise ValueError(f"Bad request: period {period_date} not available in forecast dataset")
+    forecast_slice = forecast_dataset.sel(time=period_dates)
+
+    # Load climatology data
+    climatology_dataset = open_dataset_by_path(app.config['NETCDF_S2D_CLIMATOLOGY_FILENAME_FORMATS'].format(
+        root=app.config['DATASETS_ROOT'],
+        var=var,
+        freq=freq
+    ))
+    climatology_period_dates = []
+    for period_date in period_dates:
+        climatology_period_dates.append(period_date.replace(year=1991))
+    climatology_slice = climatology_dataset.sel(time=climatology_period_dates)
+
+    # Load skill data
+    skill_dataset = open_dataset_by_path(app.config['NETCDF_S2D_SKILL_FILENAME_FORMATS'].format(
+        root=app.config['DATASETS_ROOT'],
+        var=var,
+        freq=freq,
+        ref_period=ref_period.month
+    ))
+    for period_date in period_dates:
+        if period_date.month not in skill_dataset['time'].dt.month.values:
+            raise ValueError(f"Bad request: period {period_date} not available in skill dataset")
+    skill_slice = skill_dataset.sel(time=skill_dataset['time'].dt.month.isin([d.month for d in period_dates]))
+
+    return forecast_slice, climatology_slice, skill_slice
