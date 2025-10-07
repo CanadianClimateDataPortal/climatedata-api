@@ -18,9 +18,10 @@ from tests.unit.utils import generate_s2d_test_datasets
 
 class TestDownloadS2D:
     @pytest.mark.parametrize("file_format", [DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_CSV_FORMAT, DOWNLOAD_JSON_FORMAT])
+    @pytest.mark.parametrize("subset_type", ["points", "bbox"])
     @patch("climatedata_api.download.get_s2d_release_date", return_value="2025-01-01")
     @patch("climatedata_api.download.open_dataset_by_path")
-    def test_valid_payload(self, mock_open_dataset, mock_release, test_app, client, file_format):
+    def test_valid_payload(self, mock_open_dataset, mock_release, test_app, client, file_format, subset_type):
         lats = [43.0, 50.7, 61.04, 68.75, 73.82]
         lons = [-140.0, -130, -120, -98.54, -61.11]
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
@@ -29,14 +30,29 @@ class TestDownloadS2D:
 
         mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
 
-        points = [[50.7, -120], [50.7, -140], [68.75, -140], [73.82, -98.54]]
+        if subset_type == "points":
+            expected_points = [[50.7, -120], [50.7, -140], [68.75, -140], [73.82, -98.54]]
+            expected_lats = sorted(set([pt[0] for pt in expected_points]))
+            expected_lons = sorted(set([pt[1] for pt in expected_points]))
+            subset_payload = {
+                "points": expected_points,
+            }
+
+        else:  # bbox
+            bbox = [50, -140, 70, -100]  # min_lat, min_lon, max_lat, max_lon
+            subset_payload = {"bbox": bbox}
+            expected_lats = [lat for lat in lats if bbox[0] <= lat <= bbox[2]]
+            expected_lons = [lon for lon in lons if bbox[1] <= lon <= bbox[3]]
+            expected_points = [[lat, lon] for lat in expected_lats for lon in expected_lons]
+
+
         payload = {
             "var": S2D_VARIABLE_AIR_TEMP,
             "format": file_format,
-            "points": points,
             "forecast_type": S2D_FORECAST_TYPE_EXPECTED,
             "frequency": S2D_FREQUENCY_SEASONAL,
             "periods": ["2025-06", "2025-12"],
+            **subset_payload,
         }
         response = client.post("/download-s2d", json=payload)
 
@@ -97,8 +113,6 @@ class TestDownloadS2D:
                 "skill_CRPSS",
                 "skill_level",
             ]
-            expected_lats = [50.7, 68.75, 73.82]
-            expected_lons = [-120.0, -140.0, -98.54]
 
             # Check contents of each file
             for filename in file_list:
@@ -123,7 +137,7 @@ class TestDownloadS2D:
                         for lat in ds["lat"].values:
                             for lon in ds["lon"].values:
                                 for var in expected_data_vars:
-                                    if [lat, lon] in points:
+                                    if [lat,lon] in expected_points:
                                         if var == "skill_level":
                                             assert ds.sel(lat=lat, lon=lon)[var].values == S2D_SKILL_LEVEL_STR[get_expected_value(lat, lon, var, month).item()]
                                         else:
