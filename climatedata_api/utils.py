@@ -1,6 +1,7 @@
 import io
 import math
 import xarray as xr
+from clisops.core.subset import subset_bbox
 from flask import current_app as app
 import geopandas as gpd
 from scipy.spatial import KDTree
@@ -213,15 +214,26 @@ def make_zip(content):
     return buffer
 
 def load_s2d_datasets_by_periods(var, freq, period_dates, ref_period):
+    """
+    Load S2D datasets (forecast, climatology, skill) for the given periods.
+
+    :param var: variable name associated with the datasets to load
+    :param freq: frequency associated with the datasets to load
+    :param period_dates: list of datetime objects representing the periods to load
+    :param ref_period: datetime object representing the reference period for the skill dataset
+    :return: tuple with the selected forecast, climatology and skill datasets
+    """
     # Load forecast data
     forecast_dataset = open_dataset_by_path(app.config['NETCDF_S2D_FORECAST_FILENAME_FORMATS'].format(
         root=app.config['DATASETS_ROOT'],
         var=var,
         freq=freq
     ))
+    # Check that all period dates are available in the dataset before selecting them
     for period_date in period_dates:
-        if not ((forecast_dataset['time'].dt.year == period_date.year) &
-                (forecast_dataset['time'].dt.month == period_date.month)).any():
+        try:
+            forecast_dataset.sel(time=period_date)
+        except:
             raise ValueError(f"Bad request: period {period_date} not available in forecast dataset")
     forecast_slice = forecast_dataset.sel(time=period_dates)
 
@@ -249,3 +261,51 @@ def load_s2d_datasets_by_periods(var, freq, period_dates, ref_period):
     skill_slice = skill_dataset.sel(time=skill_dataset['time'].dt.month.isin([d.month for d in period_dates]))
 
     return forecast_slice, climatology_slice, skill_slice
+
+def get_subset_by_bbox(dataset, bbox):
+    """
+    Subsets a dataset by filtering its lat and lon coordinates to be within the given bounding box.
+
+    :param dataset: xarray dataset to subset
+    :param bbox: bounding box [lat_min, lon_min, lat_max, lon_max]
+    :return: subsetted xarray dataset
+    """
+    # make sure bbox is in the correct order
+    lat_min, lat_max = sorted([bbox[0], bbox[2]])
+    lon_min, lon_max = sorted([bbox[1], bbox[3]])
+    return subset_bbox(dataset, lat_bnds=[lat_min, lat_max], lon_bnds=[lon_min, lon_max])
+
+
+def get_subset_by_points(dataset, points):
+    """
+    Subsets a dataset by filtering its lat and lon coordinates to be the nearest values to the given points.
+
+    Note that in the returned dataset, any lat/lon combinations that don't correspond to any requested point
+    will be assigned nan values.
+
+    :param dataset: xarray dataset to subset
+    :param points: list of (lat, lon) tuples
+    :return: subsetted xarray dataset
+    """
+    # Filter to the nearest concerned lat and lon values
+    nearest_points = [
+        (dataset.lat.sel(lat=lat, method="nearest").item(),
+         dataset.lon.sel(lon=lon, method="nearest").item())
+        for lat, lon in points
+    ]
+    used_lats = sorted(set(lat for lat, _ in nearest_points))
+    used_lons = sorted(set(lon for _, lon in nearest_points))
+
+    subset = dataset.sel(lat=used_lats, lon=used_lons)
+
+    # Filter the subset to only keep the values that correspond exactly to the requested lat/lon combinations
+    # nan values are assigned to any lat/lon combinations that don't correspond to any requested point
+    mask = np.full((len(used_lats), len(used_lons)), False)
+
+    for lat, lon in nearest_points:
+        i = used_lats.index(lat)
+        j = used_lons.index(lon)
+        mask[i, j] = True
+
+    filtered_ds = subset.where(mask)
+    return filtered_ds

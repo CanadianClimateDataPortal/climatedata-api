@@ -13,16 +13,24 @@ import pandas as pd
 from pandas.api.types import is_numeric_dtype
 
 import xarray as xr
-from clisops.core.subset import subset_bbox
 from flask import Response, after_this_request
 from flask import current_app as app
 from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
 
 from climatedata_api.map import get_s2d_release_date
-from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path, load_s2d_datasets_by_periods
-from default_settings import DOWNLOAD_CSV_FORMAT, DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_JSON_FORMAT, S2D_FREQUENCY_MONTHLY, \
-    S2D_FREQUENCY_SEASONAL, S2D_FORECAST_TYPE_EXPECTED, S2D_FILENAME_VALUES, S2D_SKILL_LEVEL_STR
+from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path, \
+    load_s2d_datasets_by_periods, get_subset_by_bbox, get_subset_by_points
+from default_settings import (
+    DOWNLOAD_CSV_FORMAT,
+    DOWNLOAD_JSON_FORMAT,
+    DOWNLOAD_NETCDF_FORMAT,
+    S2D_FILENAME_VALUES,
+    S2D_FORECAST_TYPE_EXPECTED,
+    S2D_FREQUENCY_MONTHLY,
+    S2D_FREQUENCY_SEASONAL,
+    S2D_SKILL_LEVEL_STR,
+)
 
 
 def float_format_dataframe(df, decimals):
@@ -44,10 +52,7 @@ def get_subset(dataset, point, adjust, limit=None):
     if len(point) == 2:
         ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
     elif len(point) == 4:
-        # make sure bbox is in the correct order
-        lat_min, lat_max = sorted([point[0], point[2]])
-        lon_min, lon_max = sorted([point[1], point[3]])
-        ds = subset_bbox(dataset, lat_bnds=[lat_min, lat_max], lon_bnds=[lon_min, lon_max])
+        ds = get_subset_by_bbox(dataset, point)
     else:
         raise ValueError("point argument must be of length 2 or 4")
     if adjust:
@@ -114,6 +119,14 @@ def output_netcdf(ds, encoding, format):
 
 
 def check_points_or_bbox(points, bbox, month=None):
+    """
+        Validates the points or bbox parameter from the download request.
+
+        :param points: array of [lat,lon] coordinates
+        :param bbox: bounding box coordinates: [min-lat, min-lon, max-lat, max-lon]
+        :param month: the month parameter (used to limit points if month=='all')
+        :return: raises ValueError if the parameters are not valid
+    """
     if points and bbox:
         raise ValueError("Can't request both points and bbox simultaneously")
 
@@ -689,14 +702,18 @@ def download_s2d():
           'periods': ['2025-06', '2025-12']
         }'
 
-        var: s2d variable to download
-        format: csv, json or netcdf
-          points: array of [lat,lon] coordinates
+        The request JSON payload uses those parameters:
+
+        :param var: s2d variable to download
+        :param format: csv, json or netcdf
+
+          :param points: array of [lat,lon] coordinates
         or
-          bbox: bounding box coordinates: [min-lat, min-lon, max-lat, max-lon]
-        forecast_type: forecast type to download [expected, unusual],
-        frequency: the selected frequency [monthly, seasonal, decadal]
-        periods: the list of periods for which we want to download the data
+          :param bbox: bounding box coordinates: [min-lat, min-lon, max-lat, max-lon]
+
+        :param forecast_type: forecast type to download [expected, unusual],
+        :param frequency: the selected frequency [monthly, seasonal, decadal]
+        :param periods: the list of periods for which we want to download the data
     """
     args = request.get_json()
     try:
@@ -720,7 +737,6 @@ def download_s2d():
         except ValueError as e:
             raise ValueError(f"Invalid periods. They should follow the YYYY-MM format")
 
-
         if output_format not in [DOWNLOAD_JSON_FORMAT, DOWNLOAD_CSV_FORMAT, DOWNLOAD_NETCDF_FORMAT]:
             raise ValueError(f"Invalid format `{output_format}`")
 
@@ -738,9 +754,9 @@ def download_s2d():
     except ValueError as e:
         return e, 400
 
-    forecast_slice = filter_dataset(forecast_slice, points, bbox)
-    climatology_slice = filter_dataset(climatology_slice, points, bbox)
-    skill_slice = filter_dataset(skill_slice, points, bbox)
+    forecast_slice = get_subset_by_points(forecast_slice, points) if points else get_subset_by_bbox(forecast_slice, bbox)
+    climatology_slice = get_subset_by_points(climatology_slice, points) if points else get_subset_by_bbox(climatology_slice, bbox)
+    skill_slice = get_subset_by_points(skill_slice, points) if points else get_subset_by_bbox(skill_slice, bbox)
 
     # merge xarrays to have one merged dataset per period
     merged_slices = merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatology_slice, skill_slice)
@@ -810,37 +826,6 @@ def download_s2d():
         raise e
 
     return send_file(zip_path, download_name=zip_filename, as_attachment=True, mimetype="application/zip")
-
-
-def filter_dataset(dataset, points, bbox):
-    """
-    Returns a subset of the dataset according to the input points or bbox
-    """
-    if points:
-        # Filter to the nearest concerned lat and lon values
-        nearest_points = [
-            (dataset.lat.sel(lat=lat, method="nearest").item(),
-             dataset.lon.sel(lon=lon, method="nearest").item())
-            for lat, lon in points
-        ]
-        used_lats = sorted(set(lat for lat, _ in nearest_points))
-        used_lons = sorted(set(lon for _, lon in nearest_points))
-
-        subset = dataset.sel(lat=used_lats, lon=used_lons)
-
-        # Filter the subset to only keep the values that correspond exactly to the requested lat/lon combinations
-        # nan values are assigned to any lat/lon combinations that don't correspond to any requested point
-        mask = np.full((len(used_lats), len(used_lons)), False)
-
-        for lat, lon in nearest_points:
-            i = used_lats.index(lat)
-            j = used_lons.index(lon)
-            mask[i, j] = True
-
-        filtered_ds = subset.where(mask)
-    else:  # bbox
-        filtered_ds = get_subset(dataset, bbox, adjust=False)
-    return filtered_ds
 
 
 def write_metadata_file(path, dataset):

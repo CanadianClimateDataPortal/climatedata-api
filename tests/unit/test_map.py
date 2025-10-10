@@ -3,8 +3,12 @@ import xarray as xr
 from unittest.mock import patch
 
 from climatedata_api.map import get_s2d_release_date, get_s2d_gridded_values
-from default_settings import S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL, S2D_CLIMATO_DATA_VAR_NAMES, \
-    S2D_FORECAST_DATA_VAR_NAMES
+from default_settings import (
+    S2D_CLIMATO_DATA_VAR_NAMES,
+    S2D_FORECAST_DATA_VAR_NAMES,
+    S2D_FREQUENCY_SEASONAL,
+    S2D_VARIABLE_AIR_TEMP,
+)
 from tests.unit.utils import generate_s2d_test_datasets
 
 
@@ -41,6 +45,11 @@ class TestGetS2DGriddedValues:
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
         skill_times = [f"1991-{month:02d}-01" for month in range(1, 13)]
         forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(lats, lons, forecast_times, skill_times)
+
+        # Add fake extra datavars to the datasets to ensure they are ignored and not returned by the function
+        forecast_ds["extra_forecast_var"] = (("time", "lat", "lon"), np.random.rand(len(forecast_ds.time), len(lats), len(lons)))
+        climato_ds["extra_climato_var"] = (("time", "lat", "lon"), np.random.rand(len(climato_ds.time), len(lats), len(lons)))
+        skill_ds["extra_skill_var"] = (("time", "lat", "lon"), np.random.rand(len(skill_ds.time), len(lats), len(lons)))
 
         mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
 

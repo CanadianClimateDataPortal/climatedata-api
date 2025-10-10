@@ -6,11 +6,21 @@ from flask import current_app as app
 from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
 
-from climatedata_api.utils import open_dataset, open_dataset_by_path, decode_compressed_points, \
-    load_s2d_datasets_by_periods
+from climatedata_api.utils import (
+    open_dataset,
+    open_dataset_by_path,
+    decode_compressed_points,
+    load_s2d_datasets_by_periods,
+)
 import pickle
 import numpy as np
 from sentry_sdk import capture_message
+
+from default_settings import (
+    S2D_CLIMATO_DATA_VAR_NAMES,
+    S2D_FORECAST_DATA_VAR_NAMES,
+    S2D_SKILL_DATA_VAR_NAMES,
+)
 
 
 def get_choro_values(partition, var, scenario, month='ann'):
@@ -246,17 +256,11 @@ def get_id_list_from_points(compressed_points):
 
 def get_s2d_release_date(var, freq):
     """
-    Return the release date of the forecast data associated to a given variable and frequency
+    Return the release date of the forecast data associated with a given variable and frequency
     curl 'http://localhost:5000/get-s2d-release-date/air_temp/seasonal'
     """
-    try:
-        if var not in app.config['S2D_VARIABLES']:
-            raise ValueError
-        if freq not in app.config['S2D_FREQUENCIES']:
-            raise ValueError
-    except ValueError:
+    if (var not in app.config['S2D_VARIABLES']) or (freq not in app.config['S2D_FREQUENCIES']):
         return "Bad request", 400
-
 
     dataset = open_dataset_by_path(app.config['NETCDF_S2D_FORECAST_FILENAME_FORMATS'].format(
         root=app.config['DATASETS_ROOT'],
@@ -296,6 +300,9 @@ def get_s2d_gridded_values(lat, lon, var, freq, period):
     skill_slice = skill_slice.sel(lon=longitude, lat=latitude, method='nearest')
 
     values = {}
-    for dataset in [forecast_slice, climatology_slice, skill_slice]:
-        values.update({var: dataset[var].item() for var in dataset.data_vars})
+    for var_list, dataset in [
+            (S2D_FORECAST_DATA_VAR_NAMES, forecast_slice),
+            (S2D_CLIMATO_DATA_VAR_NAMES, climatology_slice),
+            (S2D_SKILL_DATA_VAR_NAMES, skill_slice)]:
+        values.update({var: dataset[var].item() for var in var_list})
     return values
