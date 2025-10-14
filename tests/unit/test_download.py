@@ -51,7 +51,7 @@ class TestDownloadS2D:
             expected_lats = sorted(set([pt[0] for pt in expected_points]))
             expected_lons = sorted(set([pt[1] for pt in expected_points]))
             subset_payload = {
-                "points": expected_points,
+                "points": expected_points + [[51.7, -120], [51.71, -120.01]]  # include duplicates to check that it doesn't affect the results
             }
 
         else:  # bbox

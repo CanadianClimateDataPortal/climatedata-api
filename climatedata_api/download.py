@@ -759,7 +759,39 @@ def download_s2d():
     skill_slice = get_subset_by_points(skill_slice, points) if points else get_subset_by_bbox(skill_slice, bbox)
 
     # merge xarrays to have one merged dataset per period
-    merged_slices = merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatology_slice, skill_slice)
+    merged_slices = {}
+    for period_date in period_dates:
+        month = period_date.month
+        time_period_abbr = get_time_period_abbr(freq, month)
+
+        month_slices = []
+        for ds in [forecast_slice, climatology_slice, skill_slice]:
+            # Select desired month
+            month_slice = ds.sel(time=ds["time"].dt.month == month).drop_vars("time").squeeze("time", drop=True)
+
+            # Regrid the data according to the climatology data's grid
+            month_slice = month_slice.interp(
+                lat=climatology_slice['lat'],
+                lon=climatology_slice['lon'],
+                method='nearest'
+            )
+            month_slices.append(month_slice)
+
+        # Merge data for this month
+        merged_slice = xr.merge(
+            month_slices,
+            combine_attrs='override'
+        )
+
+        # Ensure we keep the forecast's global attributes
+        merged_slice.attrs = forecast_slice.attrs
+
+        merged_slice.attrs['time_period'] = time_period_abbr
+
+        merged_slice = drop_unused_data_variables(merged_slice, forecast_type)
+        merged_slice = update_skill_level_repr(merged_slice)
+
+        merged_slices[time_period_abbr] = merged_slice
 
     # prepare filename placeholders values
     filename_var = S2D_FILENAME_VALUES[var]
@@ -844,60 +876,53 @@ def write_metadata_file(path, dataset):
             for key, value in dataset[var_name].attrs.items():
                 f.write(f"{key}: {value}\n")
 
-def merge_s2d_slices(period_dates, forecast_type, freq, forecast_slice, climatology_slice, skill_slice):
-    merged_slices = {}
-    for period_date in period_dates:
-        month = period_date.month
 
-        # Add missing metadata
-        if freq == S2D_FREQUENCY_MONTHLY:
-            time_period_abbr = calendar.month_abbr[month]
-        elif freq == S2D_FREQUENCY_SEASONAL:
-            time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 2) % 12]}"
+def get_time_period_abbr(freq: str, month: int):
+    """
+    Returns the time period abbreviation based on frequency and month.
+    """
+    if freq == S2D_FREQUENCY_MONTHLY:
+        time_period_abbr = calendar.month_abbr[month]
+    elif freq == S2D_FREQUENCY_SEASONAL:
+        time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 2) % 12]}"
+    else:
+        raise ValueError(f"Invalid frequency `{freq}`")
+    return time_period_abbr
+
+
+def drop_unused_data_variables(dataset, forecast_type: str):
+    """
+    Removes unusued variables according to the forecast type
+    """
+    if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
+        dataset = dataset.drop_vars([
+            'prob_unusually_high',
+            'prob_unusually_low',
+            'cutoff_unusually_high_p80',
+            'cutoff_unusually_low_p20'
+        ])
+    else:
+        dataset = dataset.drop_vars([
+            'prob_above_normal',
+            'prob_near_normal',
+            'prob_below_normal',
+            'cutoff_above_normal_p66',
+            'cutoff_below_normal_p33'
+        ])
+    return dataset
+
+def update_skill_level_repr(dataset):
+    """
+    Update the skill level data variable to use the string representation
+    """
+    new_data = dataset["skill_level"].copy().astype(object)
+
+    for i in np.ndindex(dataset["skill_level"].shape):
+        value = dataset["skill_level"].values[i]
+        if not np.isnan(value):
+            new_data.values[i] = S2D_SKILL_LEVEL_STR.get(int(value), None)
         else:
-            raise ValueError(f"Invalid frequency `{freq}`")
+            new_data.values[i] = np.nan
 
-        # Select only the times corresponding to this month in each dataset
-        month_slices = [
-            ds.sel(time=ds["time"].dt.month == month).drop_vars("time").squeeze("time", drop=True)
-            for ds in [forecast_slice, climatology_slice, skill_slice]
-        ]
-
-        # Merge data for this month
-        merged_slices[time_period_abbr] = xr.merge(
-            month_slices,
-            combine_attrs='override'  # Keep metadata from the first dataset (forecast_slice in this case)
-        )
-
-        merged_slices[time_period_abbr].attrs['time_period'] = time_period_abbr
-
-        # Delete unusued variables according to the forecast type
-        if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
-            merged_slices[time_period_abbr] = merged_slices[time_period_abbr].drop_vars([
-                'prob_unusually_high',
-                'prob_unusually_low',
-                'cutoff_unusually_high_p80',
-                'cutoff_unusually_low_p20'
-            ])
-        else:
-            merged_slices[time_period_abbr] = merged_slices[time_period_abbr].drop_vars([
-                'prob_above_normal',
-                'prob_near_normal',
-                'prob_below_normal',
-                'cutoff_above_normal_p66',
-                'cutoff_below_normal_p33'
-            ])
-
-        # Update the skill level to use the string representation
-        new_data = merged_slices[time_period_abbr]["skill_level"].copy().astype(object)
-
-        for i in np.ndindex(merged_slices[time_period_abbr]["skill_level"].shape):
-            value = merged_slices[time_period_abbr]["skill_level"].values[i]
-            if not np.isnan(value):
-                new_data.values[i] = S2D_SKILL_LEVEL_STR.get(int(value), None)
-            else:
-                new_data.values[i] = np.nan
-
-        merged_slices[time_period_abbr]["skill_level"] = new_data
-
-    return merged_slices
+    dataset["skill_level"] = new_data
+    return dataset
