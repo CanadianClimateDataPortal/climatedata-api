@@ -14,6 +14,8 @@ from tests.unit.utils import generate_s2d_test_datasets
 
 class TestGetS2DReleaseDate:
     def test_valid_xarray(self, test_app):
+        # Only testing on datetime values that use the first day of the month and the hour 0, since the input data
+        # should have been both pre-processed to this format and validated by the Airflow pipeline preemptively.
         times = np.array(['2025-09-01T00:00:00.000000000', '2025-10-01T00:00:00.000000000',
                           '2025-08-01T00:00:00.000000000', '2026-02-01T00:00:00.000000000'], dtype='datetime64[ns]')
         test_dataset = xr.Dataset(coords={"time": times})

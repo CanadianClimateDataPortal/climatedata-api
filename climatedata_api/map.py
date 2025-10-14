@@ -258,6 +258,9 @@ def get_s2d_release_date(var, freq):
     """
     Return the release date of the forecast data associated with a given variable and frequency
     curl 'http://localhost:5000/get-s2d-release-date/air_temp/seasonal'
+
+    Returned string is in the YYYY-MM-DD format.
+    The input data should normally only use the first day of months, so the returned day is always "01".
     """
     if (var not in app.config['S2D_VARIABLES']) or (freq not in app.config['S2D_FREQUENCIES']):
         return "Bad request", 400
