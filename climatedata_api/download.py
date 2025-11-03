@@ -118,7 +118,7 @@ def output_netcdf(ds, encoding, format):
     return f
 
 
-def check_points_or_bbox(points, bbox, month=None):
+def check_points_or_bbox(points: list[list[float, float]], bbox: list[float, float, float, float], month: str=None):
     """
         Validates the points or bbox parameter from the download request.
 
@@ -747,10 +747,10 @@ def download_s2d():
     except (BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
-    ref_period = datetime.strptime(get_s2d_release_date(var, freq), "%Y-%m-%d")
+    release_date = datetime.strptime(get_s2d_release_date(var, freq), "%Y-%m-%d")
 
     try:
-        forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, period_dates, ref_period)
+        forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, period_dates, release_date)
     except ValueError as e:
         return e, 400
 
@@ -795,7 +795,7 @@ def download_s2d():
     filename_var = S2D_FILENAME_VALUES[var]
     filename_forecast_type = S2D_FILENAME_VALUES[forecast_type]
     filename_freq = S2D_FILENAME_VALUES[freq]
-    filename_release_date = calendar.month_abbr[ref_period.month] + str(ref_period.year)
+    filename_release_date = calendar.month_abbr[release_date.month] + str(release_date.year)
 
     # Output data to .zip file
     zip_filename = f"{filename_var}_{filename_forecast_type}_{filename_freq}_Release{filename_release_date}.zip"
@@ -858,7 +858,7 @@ def download_s2d():
     return send_file(zip_path, download_name=zip_filename, as_attachment=True, mimetype="application/zip")
 
 
-def write_metadata_file(path, dataset):
+def write_metadata_file(path: str, dataset: xr.Dataset) -> None:
     with open(path, "w") as f:
         f.write("=== Dataset global attributes ===\n")
         for key, value in dataset.attrs.items():
@@ -875,7 +875,7 @@ def write_metadata_file(path, dataset):
                 f.write(f"{key}: {value}\n")
 
 
-def get_time_period_abbr(freq: str, month: int):
+def get_time_period_abbr(freq: str, month: int) -> str:
     """
     Returns the time period abbreviation based on frequency and month.
     """
@@ -888,9 +888,9 @@ def get_time_period_abbr(freq: str, month: int):
     return time_period_abbr
 
 
-def drop_unused_data_variables(dataset, forecast_type: str):
+def drop_unused_data_variables(dataset: xr.Dataset, forecast_type: str) -> xr.Dataset:
     """
-    Removes unusued variables according to the forecast type
+    Removes unused variables according to the forecast type
     """
     if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
         dataset = dataset.drop_vars([
@@ -909,7 +909,7 @@ def drop_unused_data_variables(dataset, forecast_type: str):
         ])
     return dataset
 
-def update_skill_level_repr(dataset):
+def update_skill_level_repr(dataset: xr.Dataset) -> xr.Dataset:
     """
     Update the skill level data variable to use the string representation
     """

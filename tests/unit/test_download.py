@@ -2,13 +2,14 @@ import datetime
 import io
 import tempfile
 import zipfile
+from typing import Union
 from unittest.mock import patch
 
 import geopandas
 import numpy as np
 import pandas as pd
 import pytest
-import xarray
+import xarray as xr
 
 from climatedata_api.download import check_points_or_bbox
 from default_settings import (
@@ -87,7 +88,7 @@ class TestDownloadS2D:
         assert "attachment" in response.headers["Content-Disposition"]
         assert expected_zip_filename in response.headers["Content-Disposition"]
 
-        def get_nearest_index(coord, value):
+        def get_nearest_index(coord: xr.DataArray, value: Union[float, datetime.datetime]) -> int:
             coord_vals = coord.values
             idx = np.searchsorted(coord_vals, value)
             if idx == 0:
@@ -100,7 +101,7 @@ class TestDownloadS2D:
                 # Use the same tie-breaking rule as numpy.interp (<= picks left)
                 return idx - 1 if abs(value - left) <= abs(value - right) else idx
 
-        def get_expected_value(lat, lon, var, month):
+        def get_expected_value(lat: float, lon: float, var: str, month: datetime.datetime) -> np.ndarray:
             if var in S2D_FORECAST_DATA_VAR_NAMES:
                 expected_ds = forecast_ds
                 month_sel = month
@@ -117,7 +118,7 @@ class TestDownloadS2D:
 
             return expected_ds[var].isel(lat=lat_idx, lon=lon_idx, time=time_idx).values
 
-        def get_related_dataset(var):
+        def get_related_dataset(var: str) -> xr.Dataset:
             if var in S2D_FORECAST_DATA_VAR_NAMES:
                 return forecast_ds
             elif var in S2D_CLIMATO_DATA_VAR_NAMES:
@@ -180,7 +181,7 @@ class TestDownloadS2D:
                         with tempfile.NamedTemporaryFile(suffix=".nc") as tmp:
                             tmp.write(f.read())
                             tmp.flush()
-                            ds = xarray.open_dataset(tmp.name)
+                            ds = xr.open_dataset(tmp.name)
 
                         assert set(ds.coords) == set(expected_coords)
                         assert set(ds.data_vars) == set(expected_data_vars)
@@ -301,6 +302,12 @@ class TestDownloadS2D:
             assert "Invalid periods" in response.text
 
 class TestCheckPointsOrBbox:
+    def test_valid_points(self, test_app):
+        check_points_or_bbox([[1, 2], [3, 4]], None)
+
+    def test_valid_bbox(self, test_app):
+        check_points_or_bbox(None, [1, 2, 3, 4])
+
     def test_points_and_bbox(self, test_app):
         with pytest.raises(ValueError) as excinfo:
             check_points_or_bbox([[1, 2]], [1, 2, 3, 4])

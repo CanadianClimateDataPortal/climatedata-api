@@ -1,3 +1,4 @@
+import datetime
 import io
 import math
 import xarray as xr
@@ -213,7 +214,11 @@ def make_zip(content):
     buffer.seek(0)
     return buffer
 
-def load_s2d_datasets_by_periods(var, freq, period_dates, ref_period):
+def load_s2d_datasets_by_periods(var: str,
+                                 freq: str,
+                                 period_dates: list[datetime.datetime],
+                                 ref_period: datetime.datetime
+                                 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """
     Load S2D datasets (forecast, climatology, skill) for the given periods.
 
@@ -262,7 +267,7 @@ def load_s2d_datasets_by_periods(var, freq, period_dates, ref_period):
 
     return forecast_slice, climatology_slice, skill_slice
 
-def get_subset_by_bbox(dataset, bbox):
+def get_subset_by_bbox(dataset: xr.Dataset, bbox: list[float, float, float, float]) -> xr.Dataset:
     """
     Subsets a dataset by filtering its lat and lon coordinates to be within the given bounding box.
 
@@ -276,7 +281,7 @@ def get_subset_by_bbox(dataset, bbox):
     return subset_bbox(dataset, lat_bnds=[lat_min, lat_max], lon_bnds=[lon_min, lon_max])
 
 
-def get_subset_by_points(dataset, points):
+def get_subset_by_points(dataset: xr.Dataset, points: list[list[float, float]]) -> xr.Dataset:
     """
     Subsets a dataset by filtering its lat and lon coordinates to be the nearest values to the given points.
 
