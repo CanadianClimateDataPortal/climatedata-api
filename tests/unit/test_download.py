@@ -5,7 +5,7 @@ import zipfile
 from unittest.mock import patch
 
 import geopandas
-import numpy
+import numpy as np
 import pandas as pd
 import pytest
 import xarray
@@ -87,6 +87,19 @@ class TestDownloadS2D:
         assert "attachment" in response.headers["Content-Disposition"]
         assert expected_zip_filename in response.headers["Content-Disposition"]
 
+        def get_nearest_index(coord, value):
+            coord_vals = coord.values
+            idx = np.searchsorted(coord_vals, value)
+            if idx == 0:
+                return 0
+            elif idx == len(coord_vals):
+                return len(coord_vals) - 1
+            else:
+                left = coord_vals[idx - 1]
+                right = coord_vals[idx]
+                # Use the same tie-breaking rule as numpy.interp (<= picks left)
+                return idx - 1 if abs(value - left) <= abs(value - right) else idx
+
         def get_expected_value(lat, lon, var, month):
             if var in S2D_FORECAST_DATA_VAR_NAMES:
                 expected_ds = forecast_ds
@@ -97,7 +110,12 @@ class TestDownloadS2D:
             else:
                 expected_ds = skill_ds
                 month_sel = month.replace(year=1991)
-            return expected_ds.interp(lat=lat, lon=lon, time=month_sel, method="nearest", kwargs={"fill_value": 'extrapolate'})[var].values
+
+            lat_idx = get_nearest_index(expected_ds.lat, lat)
+            lon_idx = get_nearest_index(expected_ds.lon, lon)
+            time_idx = get_nearest_index(expected_ds.time, np.datetime64(month_sel))
+
+            return expected_ds[var].isel(lat=lat_idx, lon=lon_idx, time=time_idx).values
 
         def get_related_dataset(var):
             if var in S2D_FORECAST_DATA_VAR_NAMES:
@@ -183,7 +201,7 @@ class TestDownloadS2D:
                                     else:
                                         value = ds[var].sel(lat=lat, lon=lon).item()
                                         # Check for null values (for string or float data)
-                                        assert value in ("", None) or (isinstance(value, float) and numpy.isnan(value))
+                                        assert value in ("", None) or (isinstance(value, float) and np.isnan(value))
 
                         # Check metadata
                         assert all([a in ds.attrs and forecast_ds.attrs[a] == ds.attrs[a] for a in forecast_ds.attrs])
@@ -204,7 +222,7 @@ class TestDownloadS2D:
                                 if var == "skill_level":
                                     assert row[var] == S2D_SKILL_LEVEL_STR[get_expected_value(row.lat, row.lon, var, month).item()]
                                 else:
-                                    assert numpy.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
+                                    assert np.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
 
                     elif filename.endswith(ext_map[DOWNLOAD_JSON_FORMAT]):
                         gdf = geopandas.read_file(io.BytesIO(f.read()))
@@ -216,7 +234,7 @@ class TestDownloadS2D:
                                 if var == "skill_level":
                                     assert row[var] == S2D_SKILL_LEVEL_STR[get_expected_value(row.lat, row.lon, var, month).item()]
                                 else:
-                                    assert numpy.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
+                                    assert np.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
                             assert row["geometry"].geom_type == "Point"
                             assert row["geometry"].x == row["lon"]
                             assert row["geometry"].y == row["lat"]
