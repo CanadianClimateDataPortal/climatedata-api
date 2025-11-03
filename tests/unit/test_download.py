@@ -38,27 +38,36 @@ class TestDownloadS2D:
         Tests the /download-s2d endpoint with various valid payload combinations (file format, points/bbox, and forecast type)
         and checks the contents of the returned zip file.
         """
-        lats = [43.0, 51.7, 61.04, 68.75, 73.82]
-        lons = [-141.0, -130, -120, -98.54, -61.11]
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
         skill_times = [f"1991-{month:02d}-01" for month in range(1, 13)]
-        forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(lats, lons, forecast_times, skill_times, add_test_metadata=True)
+        forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(
+            lat_min=45.0,
+            lat_max=70.0,
+            lon_min=-140.0,
+            lon_max=-60.0,
+            forecast_times=forecast_times,
+            skill_times=skill_times,
+            add_test_metadata=True
+        )
 
         mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
 
         if subset_type == "points":
-            expected_points = [[51.7, -120], [51.7, -141], [68.75, -141], [73.82, -98.54]]
-            expected_lats = sorted(set([pt[0] for pt in expected_points]))
-            expected_lons = sorted(set([pt[1] for pt in expected_points]))
+            requested_points = [[51.7, -120], [51.7, -120], [51.701, -120.01],  # include duplicates to check that it doesn't affect the results
+                                [51.7, -138], [68.75, -138], [73.82, -98.54]]
             subset_payload = {
-                "points": expected_points + [[51.7, -120], [51.71, -120.01]]  # include duplicates to check that it doesn't affect the results
+                "points": requested_points
             }
 
+            expected_points = [[51.666667, -120.0], [51.666667, -138.0], [68.75, -138.0], [70.0, -98.5]]
+            expected_lats = sorted(set([pt[0] for pt in expected_points]))
+            expected_lons = sorted(set([pt[1] for pt in expected_points]))
+
         else:  # bbox
-            bbox = [50, -140, 70, -100]  # min_lat, min_lon, max_lat, max_lon
+            bbox = [68.56, -140.07, 73.0, -138]  # min_lat, min_lon, max_lat, max_lon
             subset_payload = {"bbox": bbox}
-            expected_lats = [lat for lat in lats if bbox[0] <= lat <= bbox[2]]
-            expected_lons = [lon for lon in lons if bbox[1] <= lon <= bbox[3]]
+            expected_lats = [lat for lat in climato_ds.lat.values if bbox[0] <= lat <= bbox[2]]
+            expected_lons = [lon for lon in climato_ds.lon.values if bbox[1] <= lon <= bbox[3]]
             expected_points = [[lat, lon] for lat in expected_lats for lon in expected_lons]
 
         # Send request to the endpoint to be tested
@@ -88,7 +97,7 @@ class TestDownloadS2D:
             else:
                 expected_ds = skill_ds
                 month_sel = month.replace(year=1991)
-            return expected_ds.sel(lat=lat, lon=lon, time=month_sel, method="nearest")[var].values
+            return expected_ds.interp(lat=lat, lon=lon, time=month_sel, method="nearest", kwargs={"fill_value": 'extrapolate'})[var].values
 
         def get_related_dataset(var):
             if var in S2D_FORECAST_DATA_VAR_NAMES:
@@ -166,9 +175,11 @@ class TestDownloadS2D:
                                 for var in expected_data_vars:
                                     if [lat,lon] in expected_points:
                                         if var == "skill_level":
-                                            assert ds.sel(lat=lat, lon=lon)[var].values == S2D_SKILL_LEVEL_STR[get_expected_value(lat, lon, var, month).item()]
+                                            assert ds.sel(lat=lat, lon=lon)[var].values == S2D_SKILL_LEVEL_STR[get_expected_value(lat, lon, var, month).item()], (
+                                                    f"Unexpected value for variable {var} at point ({lat}, {lon}) and month {month}")
                                         else:
-                                            assert ds.sel(lat=lat, lon=lon)[var].values == get_expected_value(lat, lon, var, month)
+                                            assert ds.sel(lat=lat, lon=lon)[var].values == get_expected_value(lat, lon, var, month), (
+                                                    f"Unexpected value for variable {var} at point ({lat}, {lon}) and month {month}")
                                     else:
                                         value = ds[var].sel(lat=lat, lon=lon).item()
                                         # Check for null values (for string or float data)

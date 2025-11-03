@@ -754,6 +754,11 @@ def download_s2d():
     except ValueError as e:
         return e, 400
 
+    # Regrid the forecast data according to the climatology data grid
+    # Use fill_value='extrapolate' to avoid NaNs when the climatology grid point is outside of the forecast grid
+    forecast_slice = forecast_slice.interp(lat=climatology_slice['lat'], method='nearest', kwargs={"fill_value": 'extrapolate'})
+    forecast_slice = forecast_slice.interp(lon=climatology_slice['lon'], method='nearest', kwargs={"fill_value": 'extrapolate'})
+
     forecast_slice = get_subset_by_points(forecast_slice, points) if points else get_subset_by_bbox(forecast_slice, bbox)
     climatology_slice = get_subset_by_points(climatology_slice, points) if points else get_subset_by_bbox(climatology_slice, bbox)
     skill_slice = get_subset_by_points(skill_slice, points) if points else get_subset_by_bbox(skill_slice, bbox)
@@ -768,13 +773,6 @@ def download_s2d():
         for ds in [forecast_slice, climatology_slice, skill_slice]:
             # Select desired month
             month_slice = ds.sel(time=ds["time"].dt.month == month).drop_vars("time").squeeze("time", drop=True)
-
-            # Regrid the data according to the climatology data's grid
-            month_slice = month_slice.interp(
-                lat=climatology_slice['lat'],
-                lon=climatology_slice['lon'],
-                method='nearest'
-            )
             month_slices.append(month_slice)
 
         # Merge data for this month
