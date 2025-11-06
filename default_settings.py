@@ -57,6 +57,10 @@ NETCDF_SLR_CMIP6_PATH = "{root}/sealevel/Decadal_CMIP6_ensemble-percentiles_alls
 
 NETCDF_ALLOWANCE_PATH =  "{root}/allowance/Decadal_CMIP6_median_allssps_2020-2150_allowance_YS.nc"
 
+NETCDF_S2D_FORECAST_FILENAME_FORMATS = "{root}/s2d/data/forecast/{var}/s2d-forecast-{var}-{freq}-data.nc"
+NETCDF_S2D_CLIMATOLOGY_FILENAME_FORMATS = "{root}/s2d/data/climatology/{var}/s2d-climatology-{var}-{freq}-data.nc"
+NETCDF_S2D_SKILL_FILENAME_FORMATS = "{root}/s2d/data/skill/{var}/s2d-skill-{var}-{freq}-rel_to_{ref_period}-data.nc"
+
 SCENARIOS = {
     'CMIP5': ['rcp26', 'rcp45', 'rcp85'],
     'CMIP6': ['ssp126', 'ssp245', 'ssp370', 'ssp585'],
@@ -73,6 +77,10 @@ HISTORICAL_DATE_LIMIT_AFTER = {'CMIP5': '2005-01-01',
 SPEI_DATE_LIMIT = '1950-01-01'
 KELVIN_TO_C = -273.15
 DOWNLOAD_POINTS_LIMIT = 1000
+
+DOWNLOAD_NETCDF_FORMAT = 'netcdf'
+DOWNLOAD_JSON_FORMAT = 'json'
+DOWNLOAD_CSV_FORMAT = 'csv'
 
 VARIABLES = ['allowance',
              'cdd',
@@ -230,3 +238,67 @@ ALLOWED_DOMAINS = [
 ]
 
 SALT = "override-me"
+
+S2D_VARIABLE_AIR_TEMP = 'air_temp'
+S2D_VARIABLE_PRECIP_ACCUM = 'precip_accum'
+
+S2D_VARIABLES = [
+    S2D_VARIABLE_AIR_TEMP,
+    S2D_VARIABLE_PRECIP_ACCUM,
+]
+
+S2D_FREQUENCY_MONTHLY = 'monthly'
+S2D_FREQUENCY_SEASONAL = 'seasonal'
+#S2D_FREQUENCY_DECADAL = 'decadal'
+
+S2D_FREQUENCIES = [
+    S2D_FREQUENCY_MONTHLY,
+    S2D_FREQUENCY_SEASONAL,
+    # 'decadal',
+]
+
+S2D_FORECAST_TYPE_EXPECTED = 'expected'
+S2D_FORECAST_TYPE_UNUSUAL = 'unusual'
+
+S2D_FORECAST_TYPES = [
+    S2D_FORECAST_TYPE_EXPECTED,
+    S2D_FORECAST_TYPE_UNUSUAL
+]
+
+S2D_FORECAST_DATA_VAR_NAMES = [
+    "prob_unusually_low",
+    "prob_below_normal",
+    "prob_near_normal",
+    "prob_above_normal",
+    "prob_unusually_high"
+]
+
+S2D_CLIMATO_DATA_VAR_NAMES = [
+    "cutoff_unusually_low_p20",
+    "cutoff_below_normal_p33",
+    "historical_median_p50",
+    "cutoff_above_normal_p66",
+    "cutoff_unusually_high_p80"
+]
+
+S2D_SKILL_DATA_VAR_NAMES = [
+    "skill_CRPSS",
+    "skill_level"
+]
+
+S2D_SKILL_LEVEL_STR = {
+    0: 'no skill',
+    1: 'low',
+    2: 'medium',
+    3: 'high'
+}
+
+S2D_FILENAME_VALUES = {
+    S2D_VARIABLE_AIR_TEMP: 'MeanTemp',
+    S2D_VARIABLE_PRECIP_ACCUM: 'TotalPrecip',
+    S2D_FORECAST_TYPE_EXPECTED: 'ExpectedCond',
+    S2D_FORECAST_TYPE_UNUSUAL: 'UnusualCond',
+    S2D_FREQUENCY_MONTHLY: 'Monthly',
+    S2D_FREQUENCY_SEASONAL: 'Seasonal',
+    #S2D_FREQUENCY_DECADAL: 'Decadal',
+}
