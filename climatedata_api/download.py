@@ -6,6 +6,7 @@ import tempfile
 import zipfile
 from datetime import datetime
 from textwrap import dedent
+from typing import Tuple
 
 import geopandas
 import numpy as np
@@ -118,7 +119,7 @@ def output_netcdf(ds, encoding, format):
     return f
 
 
-def check_points_or_bbox(points: list[list[float, float]], bbox: list[float, float, float, float], month: str=None):
+def check_points_or_bbox(points: list[Tuple[float, float]], bbox: Tuple[float, float, float, float], month: str=None):
     """
         Validates the points or bbox parameter from the download request.
 
@@ -786,7 +787,7 @@ def download_s2d():
 
         merged_slice.attrs['time_period'] = time_period_abbr
 
-        merged_slice = drop_unused_data_variables(merged_slice, forecast_type)
+        merged_slice = drop_unused_s2d_data_variables(merged_slice, forecast_type)
         merged_slice = update_skill_level_repr(merged_slice)
 
         merged_slices[time_period_abbr] = merged_slice
@@ -888,9 +889,9 @@ def get_time_period_abbr(freq: str, month: int) -> str:
     return time_period_abbr
 
 
-def drop_unused_data_variables(dataset: xr.Dataset, forecast_type: str) -> xr.Dataset:
+def drop_unused_s2d_data_variables(dataset: xr.Dataset, forecast_type: str) -> xr.Dataset:
     """
-    Removes unused variables according to the forecast type
+    Removes unused S2D variables according to the forecast type
     """
     if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
         dataset = dataset.drop_vars([

@@ -60,10 +60,15 @@ class TestGetS2DGriddedValues:
 
         mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
 
+        # Input lat/lon coordinates sent with the request
         requested_lat = 43.77
         requested_lon = -139.07
+
+        # Nearest forecast grid lat/lon coordinates
         forecast_lat = 43.5
         forecast_lon = -139.5
+
+        # Nearest climatology/skill grid lat/lon coordinates
         grid_lat = 43.75
         grid_lon = -139.083333
 

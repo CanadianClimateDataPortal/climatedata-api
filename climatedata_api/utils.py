@@ -1,6 +1,8 @@
 import datetime
 import io
 import math
+from typing import Tuple
+
 import xarray as xr
 from clisops.core.subset import subset_bbox
 from flask import current_app as app
@@ -267,7 +269,7 @@ def load_s2d_datasets_by_periods(var: str,
 
     return forecast_slice, climatology_slice, skill_slice
 
-def get_subset_by_bbox(dataset: xr.Dataset, bbox: list[float, float, float, float]) -> xr.Dataset:
+def get_subset_by_bbox(dataset: xr.Dataset, bbox: Tuple[float, float, float, float]) -> xr.Dataset:
     """
     Subsets a dataset by filtering its lat and lon coordinates to be within the given bounding box.
 
@@ -281,7 +283,7 @@ def get_subset_by_bbox(dataset: xr.Dataset, bbox: list[float, float, float, floa
     return subset_bbox(dataset, lat_bnds=[lat_min, lat_max], lon_bnds=[lon_min, lon_max])
 
 
-def get_subset_by_points(dataset: xr.Dataset, points: list[list[float, float]]) -> xr.Dataset:
+def get_subset_by_points(dataset: xr.Dataset, points: list[Tuple[float, float]]) -> xr.Dataset:
     """
     Subsets a dataset by filtering its lat and lon coordinates to be the nearest values to the given points.
 
