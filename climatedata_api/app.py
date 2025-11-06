@@ -8,14 +8,16 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 
 from climatedata_api.charts import generate_charts, generate_regional_charts
 from climatedata_api.download import (download, download_30y, download_ahccd,
-                                      download_regional_30y)
+                                      download_regional_30y, download_s2d)
 from climatedata_api.geomet import get_geomet_collection_download_links
 from climatedata_api.map import (get_allowance_gridded_values,
                                  get_choro_values,
                                  get_delta_30y_gridded_values,
                                  get_delta_30y_regional_values,
                                  get_slr_gridded_values,
-                                 get_id_list_from_points)
+                                 get_id_list_from_points,
+                                 get_s2d_release_date,
+                                 get_s2d_gridded_values)
 from climatedata_api.siteinfo import (get_location_values,
                                       get_location_values_allyears)
 from climatedata_api.raster import get_raster_route
@@ -50,12 +52,15 @@ app.add_url_rule('/get-allowance-gridded-values/<lat>/<lon>', view_func=get_allo
 app.add_url_rule('/get-delta-30y-regional-values/<partition>/<index>/<var>/<month>',
                  view_func=get_delta_30y_regional_values)
 app.add_url_rule('/get-gids/<compressed_points>', view_func=get_id_list_from_points)
+app.add_url_rule('/get-s2d-release-date/<var>/<freq>', view_func=get_s2d_release_date)
+app.add_url_rule('/get-s2d-gridded-values/<lat>/<lon>/<var>/<freq>?period=<period>', view_func=get_s2d_gridded_values)
 
 # download routes
 app.add_url_rule('/download', view_func=download, methods=['POST'])
 app.add_url_rule('/download-ahccd', view_func=download_ahccd, methods=['GET', 'POST'])
 app.add_url_rule('/download-30y/<lat>/<lon>/<var>/<month>', view_func=download_30y)
 app.add_url_rule('/download-regional-30y/<partition>/<index>/<var>/<month>', view_func=download_regional_30y)
+app.add_url_rule('/download-s2d', view_func=download_s2d, methods=['POST'])
 
 # various site information
 app.add_url_rule('/get_location_values_allyears.php', view_func=get_location_values_allyears)

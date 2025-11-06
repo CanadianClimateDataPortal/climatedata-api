@@ -1,20 +1,37 @@
+import calendar
 import itertools
 import os
+import shutil
 import tempfile
+import zipfile
+from datetime import datetime
 from textwrap import dedent
+from typing import Tuple
 
+import geopandas
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 
 import xarray as xr
-from clisops.core.subset import subset_bbox
-from flask import Response
+from flask import Response, after_this_request
 from flask import current_app as app
 from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
 
-from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path
+from climatedata_api.map import get_s2d_release_date
+from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path, \
+    load_s2d_datasets_by_periods, get_subset_by_bbox, get_subset_by_points
+from default_settings import (
+    DOWNLOAD_CSV_FORMAT,
+    DOWNLOAD_JSON_FORMAT,
+    DOWNLOAD_NETCDF_FORMAT,
+    S2D_FILENAME_VALUES,
+    S2D_FORECAST_TYPE_EXPECTED,
+    S2D_FREQUENCY_MONTHLY,
+    S2D_FREQUENCY_SEASONAL,
+    S2D_SKILL_LEVEL_STR,
+)
 
 
 def float_format_dataframe(df, decimals):
@@ -36,7 +53,7 @@ def get_subset(dataset, point, adjust, limit=None):
     if len(point) == 2:
         ds = dataset.sel(lat=point[0], lon=point[1], method='nearest').dropna('time')
     elif len(point) == 4:
-        ds = subset_bbox(dataset, lon_bnds=[point[1], point[3]], lat_bnds=[point[0], point[2]])
+        ds = get_subset_by_bbox(dataset, point)
     else:
         raise ValueError("point argument must be of length 2 or 4")
     if adjust:
@@ -100,6 +117,38 @@ def output_netcdf(ds, encoding, format):
     f = open(filename, "rb")
     os.unlink(filename)
     return f
+
+
+def check_points_or_bbox(points: list[Tuple[float, float]], bbox: Tuple[float, float, float, float], month: str=None):
+    """
+        Validates the points or bbox parameter from the download request.
+
+        :param points: array of [lat,lon] coordinates
+        :param bbox: bounding box coordinates: [min-lat, min-lon, max-lat, max-lon]
+        :param month: the month parameter (used to limit points if month=='all')
+        :return: raises ValueError if the parameters are not valid
+    """
+    if points and bbox:
+        raise ValueError("Can't request both points and bbox simultaneously")
+
+    if points:
+        if len(points) == 0:
+            raise ValueError("Points parameter is empty")
+        # Check if user abuses the API
+        points_limit = app.config['DOWNLOAD_POINTS_LIMIT']
+        if month == 'all':
+            points_limit = points_limit / 12
+        if len(points) > points_limit:
+            raise ValueError("Too many points requested")
+        for p in points:
+            if len(p) != 2:
+                raise ValueError("Points must have exactly 2 coordinates each")
+    elif bbox:
+        if len(bbox) != 4:
+            raise ValueError("bbox must be an array of length 4")
+        # TODO: calculate add API limit here... implementation may be way faster than points
+    else:
+        raise ValueError("Neither points or bbox requested")
 
 
 def download():
@@ -242,7 +291,7 @@ def download():
             return "Bad request: invalid number of decimals", 400
         monthpath, freq = app.config['MONTH_LUT'][month]
         if var not in app.config['VARIABLES']:
-            raise ValueError
+            raise ValueError("Invalid variable requested")
 
         if dataset_name not in app.config['FILENAME_FORMATS']:
             raise KeyError("Invalid dataset requested")
@@ -250,29 +299,11 @@ def download():
         if dataset_type not in app.config['FILENAME_FORMATS'][dataset_name]:
             raise KeyError("Invalid dataset type requested")
 
-        if points and bbox:
-            return "Bad request: can't request both points and bbox simultaneously", 400
+        check_points_or_bbox(points, bbox, month)
 
-        if points:
-            if len(points) == 0:
-                raise ValueError
-            # Check if user abuses the API
-            points_limit = app.config['DOWNLOAD_POINTS_LIMIT']
-            if month == 'all':
-                points_limit = points_limit / 12
-            if len(points) > points_limit:
-                return "Bad request: too many points requested", 400
-            for p in points:
-                if len(p) != 2:
-                    raise ValueError
-        elif bbox:
-            if len(bbox) != 4:
-                return "Bad request: bbox must be an array of length 4", 400
-            # TODO: calculate add API limit here... implementation may be way faster than points
-        else:
-            return "Bad request: neither points or bbox requested", 400
-
-    except (ValueError, BadRequestKeyError, KeyError, TypeError):
+    except ValueError as e:
+        return f"Bad request: {str(e)}", 400
+    except (BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
     scenarios = app.config['SCENARIOS'][dataset_name]
@@ -317,7 +348,7 @@ def download():
     if custom_filename:
         filename = custom_filename
 
-    if output_format == 'netcdf':
+    if output_format == DOWNLOAD_NETCDF_FORMAT:
         if points:
             combined_ds = xr.combine_nested(subsetted_datasets, ['region', 'time'], combine_attrs='override').dropna(
                 'region', how='all')
@@ -342,7 +373,7 @@ def download():
     else:
         dfs = [i.to_dataframe() for i in subsetted_datasets]
 
-    if output_format == 'csv':
+    if output_format == DOWNLOAD_CSV_FORMAT:
         if points:
             dfs = [j for sub in dfs for j in sub]  # flattens sublists
         concatenated_dfs = pd.concat(dfs)
@@ -360,7 +391,7 @@ def download():
         else:
             return Response(response_data, mimetype='text/csv')
 
-    if output_format == 'json':
+    if output_format == DOWNLOAD_JSON_FORMAT:
         if points:
             response_data = "[" + ",".join(
                 map(lambda df: output_json(pd.concat(df).sort_values(by='time'), var, freq, decimals, month),
@@ -587,11 +618,11 @@ def download_ahccd():
     if variable_type_filter:
         ds = ds.assign_coords(lat=ds.lat, lon=ds.lon, station_name=ds.station_name, prov=ds.prov)
 
-    if format == 'netcdf':
+    if format == DOWNLOAD_NETCDF_FORMAT:
         f = output_netcdf(ds, encoding, 'NETCDF4_CLASSIC')
         return send_file(f, mimetype='application/x-netcdf4', as_attachment=True, download_name='ahccd.nc')
 
-    if format == 'csv':
+    if format == DOWNLOAD_CSV_FORMAT:
         df = ds.to_dataframe()
         response_data = ""
         first_station = True
@@ -618,3 +649,279 @@ def download_ahccd():
                             headers={"Content-disposition": "attachment; filename=ahccd.csv"})
 
     return "Bad request", 400
+
+
+def download_s2d():
+    """
+        Performs a download of s2d data.
+        example POST data:
+        { 'var' : 'air_temp',
+          'format' : 'json',
+          'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
+          'forecast_type': 'expected',
+          'frequency': 'monthly',
+          'periods': ['2025-06', '2025-12']
+        }
+
+        JSON format:
+        curl  -s http://localhost:5000/download-s2d -H "Content-Type: application/json" -X POST -d '{
+          "var" : "air_temp",
+          'format' : 'json',
+          'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
+          'forecast_type': 'unusual',
+          'frequency': 'monthly',
+          'periods': ['2025-06', '2025-12']
+        }'
+
+        CSV format:
+        curl  -s http://localhost:5000/download-s2d -H "Content-Type: application/json" -X POST -d '{
+          "var" : "precip_accum",
+          'format' : 'csv',
+          'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
+          'forecast_type': 'expected',
+          'frequency': 'seasonal',
+          'periods': ['2025-06', '2025-12']
+        }'
+
+        Netcdf Format
+        curl  -s http://localhost:5000/download-s2d -H "Content-Type: application/json" -X POST -d '{
+          "var" : "precip_accum",
+          'format' : 'netcdf',
+          'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
+          'forecast_type': 'unusual',
+          'frequency': 'seasonal',
+          'periods': ['2025-06', '2025-12']
+        }'
+
+        bbox example (csv):
+        curl -s http://localhost:5000/download-s2d -H "Content-Type: application/json" -X POST -d '{
+          "var" : "air_temp",
+          'format' : 'csv',
+          "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058],
+          'forecast_type': 'expected',
+          'frequency': 'monthly',
+          'periods': ['2025-06', '2025-12']
+        }'
+
+        The request JSON payload uses those parameters:
+
+        :param var: s2d variable to download
+        :param format: csv, json or netcdf
+
+          :param points: array of [lat,lon] coordinates
+        or
+          :param bbox: bounding box coordinates: [min-lat, min-lon, max-lat, max-lon]
+
+        :param forecast_type: forecast type to download [expected, unusual],
+        :param frequency: the selected frequency [monthly, seasonal, decadal]
+        :param periods: the list of periods for which we want to download the data
+    """
+    args = request.get_json()
+    try:
+        var = args['var']
+        output_format = args['format']
+        points = args.get('points', None)
+        bbox = args.get('bbox', None)
+        forecast_type = args['forecast_type']
+        freq = args['frequency']
+        periods = args['periods']
+
+        if var not in app.config['S2D_VARIABLES']:
+            raise ValueError(f"Invalid variable `{var}`")
+        if forecast_type not in app.config['S2D_FORECAST_TYPES']:
+            raise ValueError(f"Invalid forecast type `{forecast_type}`")
+        if freq not in app.config['S2D_FREQUENCIES']:
+            raise ValueError(f"Invalid frequency `{freq}`")
+
+        try:
+            period_dates = [datetime.strptime(s, "%Y-%m") for s in periods]
+        except ValueError as e:
+            raise ValueError(f"Invalid periods. They should follow the YYYY-MM format")
+
+        if output_format not in [DOWNLOAD_JSON_FORMAT, DOWNLOAD_CSV_FORMAT, DOWNLOAD_NETCDF_FORMAT]:
+            raise ValueError(f"Invalid format `{output_format}`")
+
+        check_points_or_bbox(points, bbox)
+
+    except ValueError as e:
+        return f"Bad request: {str(e)}", 400
+    except (BadRequestKeyError, KeyError, TypeError):
+        return "Bad request", 400
+
+    release_date = datetime.strptime(get_s2d_release_date(var, freq), "%Y-%m-%d")
+
+    try:
+        forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, period_dates, release_date)
+    except ValueError as e:
+        return e, 400
+
+    # Regrid the forecast data according to the climatology data grid
+    # Use fill_value='extrapolate' to avoid NaNs when the climatology grid point is outside of the forecast grid
+    forecast_slice = forecast_slice.interp(lat=climatology_slice['lat'], method='nearest', kwargs={"fill_value": 'extrapolate'})
+    forecast_slice = forecast_slice.interp(lon=climatology_slice['lon'], method='nearest', kwargs={"fill_value": 'extrapolate'})
+
+    forecast_slice = get_subset_by_points(forecast_slice, points) if points else get_subset_by_bbox(forecast_slice, bbox)
+    climatology_slice = get_subset_by_points(climatology_slice, points) if points else get_subset_by_bbox(climatology_slice, bbox)
+    skill_slice = get_subset_by_points(skill_slice, points) if points else get_subset_by_bbox(skill_slice, bbox)
+
+    # merge xarrays to have one merged dataset per period
+    merged_slices = {}
+    for period_date in period_dates:
+        month = period_date.month
+        time_period_abbr = get_time_period_abbr(freq, month)
+
+        month_slices = []
+        for ds in [forecast_slice, climatology_slice, skill_slice]:
+            # Select desired month
+            month_slice = ds.sel(time=ds["time"].dt.month == month).drop_vars("time").squeeze("time", drop=True)
+            month_slices.append(month_slice)
+
+        # Merge data for this month
+        merged_slice = xr.merge(
+            month_slices,
+            combine_attrs='override'
+        )
+
+        # Ensure we keep the forecast's global attributes
+        merged_slice.attrs = forecast_slice.attrs
+
+        merged_slice.attrs['time_period'] = time_period_abbr
+
+        merged_slice = drop_unused_s2d_data_variables(merged_slice, forecast_type)
+        merged_slice = update_skill_level_repr(merged_slice)
+
+        merged_slices[time_period_abbr] = merged_slice
+
+    # prepare filename placeholders values
+    filename_var = S2D_FILENAME_VALUES[var]
+    filename_forecast_type = S2D_FILENAME_VALUES[forecast_type]
+    filename_freq = S2D_FILENAME_VALUES[freq]
+    filename_release_date = calendar.month_abbr[release_date.month] + str(release_date.year)
+
+    # Output data to .zip file
+    zip_filename = f"{filename_var}_{filename_forecast_type}_{filename_freq}_Release{filename_release_date}.zip"
+    tmpdir = tempfile.mkdtemp()
+    zip_path = os.path.join(tmpdir, zip_filename)
+
+    @after_this_request
+    def cleanup(response):
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        return response
+
+    try:
+        with zipfile.ZipFile(zip_path, "w") as zipf:
+            for time_period_abbr, ds in merged_slices.items():
+                file_basename = f"{filename_var}_{filename_forecast_type}_{time_period_abbr}_Release{filename_release_date}"
+
+                if output_format == DOWNLOAD_NETCDF_FORMAT:
+                    encodings = {}
+                    for v in ds.data_vars:
+                        if v != "skill_level":  # compression is not supported on string variables
+                            encodings[v] = {"zlib": True}
+
+                    nc_filename = f"{file_basename}.nc"
+                    nc_path = os.path.join(tmpdir, nc_filename)
+                    ds.to_netcdf(nc_path, encoding=encodings, format='NETCDF4')
+                    zipf.write(nc_path, arcname=nc_filename)
+
+                else:
+                    df = ds.to_dataframe().dropna().reset_index()
+                    columns_order = [c for c in app.config['CSV_COLUMNS_ORDER'] if c in ds] + \
+                                    [c for c in app.config['S2D_FORECAST_DATA_VAR_NAMES'] if c in ds] + \
+                                    [c for c in app.config['S2D_CLIMATO_DATA_VAR_NAMES'] if c in ds] + \
+                                    [c for c in app.config['S2D_SKILL_DATA_VAR_NAMES'] if c in ds]
+                    df = df.sort_values(by=['lat', 'lon'])
+
+                    if output_format == DOWNLOAD_CSV_FORMAT:
+                        csv_filename = f"{file_basename}.csv"
+                        csv_path = os.path.join(tmpdir, csv_filename)
+                        df.to_csv(csv_path, columns=columns_order, index=False)
+                        zipf.write(csv_path, arcname=csv_filename)
+
+                    if output_format == DOWNLOAD_JSON_FORMAT:
+                        json_filename = f"{file_basename}.json"
+                        json_path = os.path.join(tmpdir, json_filename)
+
+                        gdf = geopandas.GeoDataFrame(df, geometry=geopandas.points_from_xy(df.lon, df.lat)).reset_index(drop=True)
+                        gdf = gdf[columns_order + ['geometry']]
+                        gdf.to_file(json_path, driver="GeoJSON")
+
+                        zipf.write(json_path, arcname=json_filename)
+
+                    metadata_filename = f"metadata_{file_basename}.txt"
+                    metadata_path = os.path.join(tmpdir, metadata_filename)
+                    write_metadata_file(metadata_path, ds)
+                    zipf.write(metadata_path, arcname=metadata_filename)
+    except Exception as e:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise e
+
+    return send_file(zip_path, download_name=zip_filename, as_attachment=True, mimetype="application/zip")
+
+
+def write_metadata_file(path: str, dataset: xr.Dataset) -> None:
+    with open(path, "w") as f:
+        f.write("=== Dataset global attributes ===\n")
+        for key, value in dataset.attrs.items():
+            f.write(f"{key}: {value}\n")
+
+        for coord_name in dataset.coords:
+            f.write(f"\n=== Coordinate: {coord_name} ===\n")
+            for key, value in dataset[coord_name].attrs.items():
+                f.write(f"{key}: {value}\n")
+
+        for var_name in dataset.data_vars:
+            f.write(f"\n=== Variable: {var_name} ===\n")
+            for key, value in dataset[var_name].attrs.items():
+                f.write(f"{key}: {value}\n")
+
+
+def get_time_period_abbr(freq: str, month: int) -> str:
+    """
+    Returns the time period abbreviation based on frequency and month.
+    """
+    if freq == S2D_FREQUENCY_MONTHLY:
+        time_period_abbr = calendar.month_abbr[month]
+    elif freq == S2D_FREQUENCY_SEASONAL:
+        time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 2) % 12]}"
+    else:
+        raise ValueError(f"Invalid frequency `{freq}`")
+    return time_period_abbr
+
+
+def drop_unused_s2d_data_variables(dataset: xr.Dataset, forecast_type: str) -> xr.Dataset:
+    """
+    Removes unused S2D variables according to the forecast type
+    """
+    if forecast_type == S2D_FORECAST_TYPE_EXPECTED:
+        dataset = dataset.drop_vars([
+            'prob_unusually_high',
+            'prob_unusually_low',
+            'cutoff_unusually_high_p80',
+            'cutoff_unusually_low_p20'
+        ])
+    else:
+        dataset = dataset.drop_vars([
+            'prob_above_normal',
+            'prob_near_normal',
+            'prob_below_normal',
+            'cutoff_above_normal_p66',
+            'cutoff_below_normal_p33'
+        ])
+    return dataset
+
+def update_skill_level_repr(dataset: xr.Dataset) -> xr.Dataset:
+    """
+    Update the skill level data variable to use the string representation
+    """
+    new_data = dataset["skill_level"].copy().astype(object)
+
+    for i in np.ndindex(dataset["skill_level"].shape):
+        value = dataset["skill_level"].values[i]
+        if not np.isnan(value):
+            new_data.values[i] = S2D_SKILL_LEVEL_STR.get(int(value), None)
+        else:
+            new_data.values[i] = np.nan
+
+    dataset["skill_level"] = new_data
+    return dataset
