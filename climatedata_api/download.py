@@ -19,9 +19,16 @@ from flask import current_app as app
 from flask import request, send_file
 from werkzeug.exceptions import BadRequestKeyError
 
-from climatedata_api.map import get_s2d_release_date
-from climatedata_api.utils import format_metadata, make_zip, open_dataset, open_dataset_by_path, \
-    load_s2d_datasets_by_periods, get_subset_by_bbox, get_subset_by_points
+from climatedata_api.utils import (
+    format_metadata,
+    make_zip,
+    open_dataset,
+    open_dataset_by_path,
+    load_s2d_datasets_by_periods,
+    get_subset_by_bbox,
+    get_subset_by_points,
+    retrieve_s2d_release_date,
+)
 from default_settings import (
     DOWNLOAD_CSV_FORMAT,
     DOWNLOAD_JSON_FORMAT,
@@ -748,7 +755,7 @@ def download_s2d():
     except (BadRequestKeyError, KeyError, TypeError):
         return "Bad request", 400
 
-    release_date = datetime.strptime(get_s2d_release_date(var, freq), "%Y-%m-%d")
+    release_date = datetime.strptime(retrieve_s2d_release_date(var, freq), "%Y-%m-%d")
 
     try:
         forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, period_dates, release_date)

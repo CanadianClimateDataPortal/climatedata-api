@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
 from unittest.mock import patch
+import json
 
 from climatedata_api.map import get_s2d_release_date, get_s2d_gridded_values
 from default_settings import (
@@ -21,11 +22,13 @@ class TestGetS2DReleaseDate:
         test_dataset = xr.Dataset(coords={"time": times})
 
         # Patch open_dataset_by_path to return the test data dataset
-        with patch('climatedata_api.map.open_dataset_by_path', return_value=test_dataset):
+        with patch('climatedata_api.utils.open_dataset_by_path', return_value=test_dataset):
             result = get_s2d_release_date(S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL)
 
-        assert result == '2025-08-01'
-
+        assert result.status_code == 200
+        assert result.content_type == 'application/json'
+        response_data = json.loads(result.get_data(as_text=True))
+        assert response_data == '2025-08-01'
 
     def test_bad_param(self, test_app):
         """Should return 400 if a param is not allowed."""
@@ -38,8 +41,9 @@ class TestGetS2DReleaseDate:
         assert status == 400
         assert response == "Bad request"
 
+
 class TestGetS2DGriddedValues:
-    @patch("climatedata_api.map.get_s2d_release_date", return_value="2025-01-01")
+    @patch("climatedata_api.map.retrieve_s2d_release_date", return_value="2025-01-01")
     @patch("climatedata_api.utils.open_dataset_by_path")
     def test_valid_data(self, mock_open_dataset, mock_release, test_app):
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
@@ -114,7 +118,7 @@ class TestGetS2DGriddedValues:
         assert status == 400
         assert response == "Bad request"
 
-    @patch("climatedata_api.map.get_s2d_release_date", return_value="2025-01-01")
+    @patch("climatedata_api.map.retrieve_s2d_release_date", return_value="2025-01-01")
     @patch("climatedata_api.utils.open_dataset_by_path")
     def test_missing_time(self, mock_open_dataset, mock_release, test_app):
         forecast_times = [f"2025-{month:02d}-01" for month in range(3, 13)]

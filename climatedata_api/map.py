@@ -11,6 +11,7 @@ from climatedata_api.utils import (
     open_dataset_by_path,
     decode_compressed_points,
     load_s2d_datasets_by_periods,
+    retrieve_s2d_release_date,
 )
 import pickle
 import numpy as np
@@ -259,21 +260,17 @@ def get_s2d_release_date(var, freq):
     Return the release date of the forecast data associated with a given variable and frequency
     curl 'http://localhost:5000/get-s2d-release-date/air_temp/seasonal'
 
-    Returned string is in the YYYY-MM-DD format.
-    The input data should normally only use the first day of months, so the returned day is always "01".
+    The returned value is a JSON string in the YYYY-MM-DD format.
     """
-    if (var not in app.config['S2D_VARIABLES']) or (freq not in app.config['S2D_FREQUENCIES']):
+    try:
+        latest_datetime_str = retrieve_s2d_release_date(var, freq)
+    except ValueError:
         return "Bad request", 400
 
-    dataset = open_dataset_by_path(app.config['NETCDF_S2D_FORECAST_FILENAME_FORMATS'].format(
-        root=app.config['DATASETS_ROOT'],
-        var=var,
-        freq=freq
-    ))
-
-    latest_datetime = dataset['time'].min().values
-    latest_datetime_str = str(latest_datetime.astype('datetime64[D]'))
-    return latest_datetime_str
+    return Response(
+        json.dumps(latest_datetime_str),
+        mimetype='application/json'
+    )
 
 def get_s2d_gridded_values(lat, lon, var, freq, period):
     """
@@ -291,7 +288,7 @@ def get_s2d_gridded_values(lat, lon, var, freq, period):
     except (ValueError, BadRequestKeyError):
         return "Bad request", 400
 
-    ref_period = datetime.strptime(get_s2d_release_date(var, freq), "%Y-%m-%d")
+    ref_period = datetime.strptime(retrieve_s2d_release_date(var, freq), "%Y-%m-%d")
 
     try:
         forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, [period_date], ref_period)
