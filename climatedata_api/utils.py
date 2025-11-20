@@ -260,7 +260,7 @@ def load_s2d_datasets_by_periods(var: str,
         root=app.config['DATASETS_ROOT'],
         var=var,
         freq=freq,
-        ref_period=ref_period.month
+        ref_period=f"{ref_period.month:02d}"
     ))
     for period_date in period_dates:
         if period_date.month not in skill_dataset['time'].dt.month.values:

@@ -53,7 +53,7 @@ app.add_url_rule('/get-delta-30y-regional-values/<partition>/<index>/<var>/<mont
                  view_func=get_delta_30y_regional_values)
 app.add_url_rule('/get-gids/<compressed_points>', view_func=get_id_list_from_points)
 app.add_url_rule('/get-s2d-release-date/<var>/<freq>', view_func=get_s2d_release_date)
-app.add_url_rule('/get-s2d-gridded-values/<lat>/<lon>/<var>/<freq>?period=<period>', view_func=get_s2d_gridded_values)
+app.add_url_rule('/get-s2d-gridded-values/<lat>/<lon>/<var>/<freq>', view_func=get_s2d_gridded_values)
 
 # download routes
 app.add_url_rule('/download', view_func=download, methods=['POST'])
