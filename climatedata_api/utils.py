@@ -320,8 +320,7 @@ def get_subset_by_points(dataset: xr.Dataset, points: list[Tuple[float, float]])
 
 def retrieve_s2d_release_date(var, freq):
     """
-    Return the release date of the forecast data associated with a given variable and frequency
-    curl 'http://localhost:5000/get-s2d-release-date/air_temp/seasonal'
+    Return the release date of the forecast data associated with a given variable and frequency.
 
     The returned string is in the YYYY-MM-DD format.
     The input data should normally only use the first day of months, so the returned day is always "01".
