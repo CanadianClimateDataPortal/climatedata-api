@@ -316,3 +316,23 @@ def get_subset_by_points(dataset: xr.Dataset, points: list[Tuple[float, float]])
 
     filtered_ds = subset.where(mask)
     return filtered_ds
+
+
+def retrieve_s2d_release_date(var, freq):
+    """
+    Return the release date of the forecast data associated with a given variable and frequency.
+
+    The returned string is in the YYYY-MM-DD format.
+    The input data should normally only use the first day of months, so the returned day is always "01".
+    """
+    if (var not in app.config['S2D_VARIABLES']) or (freq not in app.config['S2D_FREQUENCIES']):
+        raise ValueError(f"Invalid variable or frequency: {var} {freq}")
+
+    dataset = open_dataset_by_path(app.config['NETCDF_S2D_FORECAST_FILENAME_FORMATS'].format(
+        root=app.config['DATASETS_ROOT'],
+        var=var,
+        freq=freq
+    ))
+
+    latest_datetime = dataset['time'].min().values
+    return str(latest_datetime.astype('datetime64[D]'))
