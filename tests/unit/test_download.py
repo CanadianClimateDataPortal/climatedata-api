@@ -32,7 +32,7 @@ class TestDownloadS2D:
     @pytest.mark.parametrize("file_format", [DOWNLOAD_NETCDF_FORMAT, DOWNLOAD_CSV_FORMAT, DOWNLOAD_JSON_FORMAT])
     @pytest.mark.parametrize("subset_type", ["points", "bbox"])
     @pytest.mark.parametrize("forecast_type", [S2D_FORECAST_TYPE_EXPECTED, S2D_FORECAST_TYPE_UNUSUAL])
-    @patch("climatedata_api.download.get_s2d_release_date", return_value="2025-01-01")
+    @patch("climatedata_api.download.retrieve_s2d_release_date", return_value="2025-01-01")
     @patch("climatedata_api.utils.open_dataset_by_path")
     def test_valid_payload(self, mock_open_dataset, mock_release, test_app, client, file_format, subset_type, forecast_type):
         """
