@@ -76,7 +76,8 @@ class TestGetS2DGriddedValues:
         grid_lat = 43.75
         grid_lon = -139.083333
 
-        result = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL, period='2025-08')
+        with test_app.test_request_context(query_string={"period": "2025-08"}):
+            result = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL)
 
         assert result == {
             **{
@@ -94,27 +95,27 @@ class TestGetS2DGriddedValues:
     def test_bad_params(self, test_app):
         """Should return 400 if a param is not allowed."""
 
-        response, status = get_s2d_gridded_values(
-            lat="61.04", lon="-61.11",
-            var="wrong_var", freq=S2D_FREQUENCY_SEASONAL,
-            period="2025-07"
-        )
+        with test_app.test_request_context(query_string={"period": "2025-07"}):
+            response, status = get_s2d_gridded_values(
+                lat="61.04", lon="-61.11",
+                var="wrong_var", freq=S2D_FREQUENCY_SEASONAL,
+            )
         assert status == 400
         assert response == "Bad request"
 
-        response, status = get_s2d_gridded_values(
-            lat="61.04", lon="-61.11",
-            var=S2D_VARIABLE_AIR_TEMP, freq="wrong_freq",
-            period="2025-07"
-        )
+        with test_app.test_request_context(query_string={"period": "2025-07"}):
+            response, status = get_s2d_gridded_values(
+                lat="61.04", lon="-61.11",
+                var=S2D_VARIABLE_AIR_TEMP, freq="wrong_freq",
+            )
         assert status == 400
         assert response == "Bad request"
 
-        response, status = get_s2d_gridded_values(
-            lat="61.04", lon="-61.11",
-            var=S2D_VARIABLE_AIR_TEMP, freq=S2D_FREQUENCY_SEASONAL,
-            period="2025-07-01"  # wrong format
-        )
+        with test_app.test_request_context(query_string={"period": "2025-07-01"}):  # wrong format
+            response, status = get_s2d_gridded_values(
+                lat="61.04", lon="-61.11",
+                var=S2D_VARIABLE_AIR_TEMP, freq=S2D_FREQUENCY_SEASONAL,
+            )
         assert status == 400
         assert response == "Bad request"
 
@@ -137,13 +138,15 @@ class TestGetS2DGriddedValues:
 
         mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
         test_period = "2025-01"
-        response, status = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL, period=test_period)
+        with test_app.test_request_context(query_string={"period": test_period}):
+            response, status = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL)
 
         assert status == 400
         assert isinstance(response, ValueError) and "not available in forecast dataset" in str(response)
 
         mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
         test_period = "2025-12"
-        response, status = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL, period=test_period)
+        with test_app.test_request_context(query_string={"period": test_period}):
+            response, status = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL)
         assert status == 400
         assert isinstance(response, ValueError) and "not available in skill dataset" in str(response)

@@ -264,7 +264,7 @@ def get_s2d_release_date(var, freq):
     """
     try:
         latest_datetime_str = retrieve_s2d_release_date(var, freq)
-    except ValueError:
+    except (ValueError, FileNotFoundError):
         return "Bad request", 400
 
     return Response(
@@ -272,7 +272,7 @@ def get_s2d_release_date(var, freq):
         mimetype='application/json'
     )
 
-def get_s2d_gridded_values(lat, lon, var, freq, period):
+def get_s2d_gridded_values(lat, lon, var, freq):
     """
     Fetch specific data within the S2D dataset
     e.g. : curl 'http://localhost:5000/get-s2d-gridded-values/61.04/-61.11?/air_temp/seasonal?period=2025-07'
@@ -284,15 +284,15 @@ def get_s2d_gridded_values(lat, lon, var, freq, period):
             raise ValueError
         if freq not in app.config['S2D_FREQUENCIES']:
             raise ValueError
+        period = request.args['period']
         period_date = datetime.strptime(period, "%Y-%m")
     except (ValueError, BadRequestKeyError):
         return "Bad request", 400
 
-    ref_period = datetime.strptime(retrieve_s2d_release_date(var, freq), "%Y-%m-%d")
-
     try:
+        ref_period = datetime.strptime(retrieve_s2d_release_date(var, freq), "%Y-%m-%d")
         forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, [period_date], ref_period)
-    except ValueError as e:
+    except (ValueError, FileNotFoundError) as e:
         return e, 400
 
     forecast_slice = forecast_slice.sel(lon=longitude, lat=latitude, method='nearest')
