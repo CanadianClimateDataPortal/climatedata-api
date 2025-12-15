@@ -762,6 +762,10 @@ def download_s2d():
     except ValueError as e:
         return e, 400
 
+    # Save coordinates metadata before regridding
+    lat_attrs = forecast_slice['lat'].attrs
+    lon_attrs = forecast_slice['lon'].attrs
+
     # Regrid the forecast data according to the climatology data grid
     # Use fill_value='extrapolate' to avoid NaNs when the climatology grid point is outside of the forecast grid
     forecast_slice = forecast_slice.interp(lat=climatology_slice['lat'], method='nearest', kwargs={"fill_value": 'extrapolate'})
@@ -793,6 +797,9 @@ def download_s2d():
         merged_slice.attrs = forecast_slice.attrs
 
         merged_slice.attrs['time_period'] = time_period_abbr
+
+        merged_slice['lat'].attrs = lat_attrs
+        merged_slice['lon'].attrs = lon_attrs
 
         merged_slice = drop_unused_s2d_data_variables(merged_slice, forecast_type)
         merged_slice = update_skill_level_repr(merged_slice)

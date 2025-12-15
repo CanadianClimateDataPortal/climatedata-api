@@ -81,9 +81,9 @@ def generate_s2d_test_datasets(lat_min: float,
             for var in ds.data_vars:
                 ds[var].attrs["var_name"] = var
 
-            # Metadata for coordinates
-            for coord in ds.coords:
-                ds[coord].attrs["coord_name"] = coord
+        # Metadata for coordinates, only add to forecast dataset
+        for coord in forecast_ds.coords:
+            forecast_ds[coord].attrs["coord_name"] = coord
 
     return datasets
 
