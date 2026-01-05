@@ -1,4 +1,5 @@
 import calendar
+from decimal import Decimal, ROUND_HALF_UP
 import itertools
 import os
 import shutil
@@ -33,6 +34,7 @@ from default_settings import (
     DOWNLOAD_CSV_FORMAT,
     DOWNLOAD_JSON_FORMAT,
     DOWNLOAD_NETCDF_FORMAT,
+    S2D_DOWNLOAD_DECIMALS,
     S2D_FILENAME_VALUES,
     S2D_FORECAST_TYPE_EXPECTED,
     S2D_FREQUENCY_MONTHLY,
@@ -845,6 +847,7 @@ def download_s2d():
                                     [c for c in app.config['S2D_CLIMATO_DATA_VAR_NAMES'] if c in ds] + \
                                     [c for c in app.config['S2D_SKILL_DATA_VAR_NAMES'] if c in ds]
                     df = df.sort_values(by=['lat', 'lon'])
+                    round_df_inplace(df)
 
                     if output_format == DOWNLOAD_CSV_FORMAT:
                         csv_filename = f"{file_basename}.csv"
@@ -872,6 +875,24 @@ def download_s2d():
 
     return send_file(zip_path, download_name=zip_filename, as_attachment=True, mimetype="application/zip")
 
+
+def round_df_inplace(df: pd.DataFrame) -> None:
+    """
+    Rounds the float columns of the input dataframe in place, according to column-specific rules.
+    """
+    for col in df.columns:
+        if not pd.api.types.is_float_dtype(df[col]):
+            continue
+
+        decimals = S2D_DOWNLOAD_DECIMALS.get(col, S2D_DOWNLOAD_DECIMALS["default"])
+
+        def round_decimal(val, decimals):
+            if pd.isna(val):
+                return None
+            # Use Decimal, to prevent floating point rounding issues
+            return float(Decimal(str(val)).quantize(Decimal(f"1e-{decimals}"), rounding=ROUND_HALF_UP))
+
+        df[col] = df[col].map(lambda x: round_decimal(x, decimals))
 
 def write_metadata_file(path: str, dataset: xr.Dataset) -> None:
     with open(path, "w") as f:
