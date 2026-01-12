@@ -11,12 +11,13 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from climatedata_api.download import check_points_or_bbox
+from climatedata_api.download import check_points_or_bbox, round_df_inplace
 from default_settings import (
     DOWNLOAD_CSV_FORMAT,
     DOWNLOAD_JSON_FORMAT,
     DOWNLOAD_NETCDF_FORMAT,
     S2D_CLIMATO_DATA_VAR_NAMES,
+    S2D_DOWNLOAD_DECIMALS,
     S2D_FILENAME_VALUES,
     S2D_FORECAST_DATA_VAR_NAMES,
     S2D_FORECAST_TYPE_EXPECTED,
@@ -101,7 +102,13 @@ class TestDownloadS2D:
                 # Use the same tie-breaking rule as numpy.interp (<= picks left)
                 return idx - 1 if abs(value - left) <= abs(value - right) else idx
 
-        def get_expected_value(lat: float, lon: float, var: str, month: datetime.datetime) -> np.ndarray:
+        def get_expected_value(
+                lat: float,
+                lon: float,
+                var: str,
+                month: datetime.datetime,
+                round_value: bool=False
+        ) -> np.ndarray:
             if var in S2D_FORECAST_DATA_VAR_NAMES:
                 expected_ds = forecast_ds
                 month_sel = month
@@ -116,7 +123,12 @@ class TestDownloadS2D:
             lon_idx = get_nearest_index(expected_ds.lon, lon)
             time_idx = get_nearest_index(expected_ds.time, np.datetime64(month_sel))
 
-            return expected_ds[var].isel(lat=lat_idx, lon=lon_idx, time=time_idx).values
+            expected_val = expected_ds[var].isel(lat=lat_idx, lon=lon_idx, time=time_idx).values
+
+            if round_value:
+                decimals = S2D_DOWNLOAD_DECIMALS.get(var, S2D_DOWNLOAD_DECIMALS["default"])
+                expected_val = np.round(expected_val, decimals)
+            return expected_val
 
         def get_related_dataset(var: str) -> xr.Dataset:
             if var in S2D_FORECAST_DATA_VAR_NAMES:
@@ -223,7 +235,7 @@ class TestDownloadS2D:
                                 if var == "skill_level":
                                     assert row[var] == S2D_SKILL_LEVEL_STR[get_expected_value(row.lat, row.lon, var, month).item()]
                                 else:
-                                    assert np.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
+                                    assert np.isclose(row[var], get_expected_value(row.lat, row.lon, var, month, round_value=True).item())
 
                     elif filename.endswith(ext_map[DOWNLOAD_JSON_FORMAT]):
                         gdf = geopandas.read_file(io.BytesIO(f.read()))
@@ -235,7 +247,7 @@ class TestDownloadS2D:
                                 if var == "skill_level":
                                     assert row[var] == S2D_SKILL_LEVEL_STR[get_expected_value(row.lat, row.lon, var, month).item()]
                                 else:
-                                    assert np.isclose(row[var], get_expected_value(row.lat, row.lon, var, month).item())
+                                    assert np.isclose(row[var], get_expected_value(row.lat, row.lon, var, month, round_value=True).item())
                             assert row["geometry"].geom_type == "Point"
                             assert row["geometry"].x == row["lon"]
                             assert row["geometry"].y == row["lat"]
@@ -338,3 +350,28 @@ class TestCheckPointsOrBbox:
         with pytest.raises(ValueError) as excinfo:
             check_points_or_bbox([], None)
         assert "Neither points or bbox requested" in str(excinfo.value)
+
+
+class TestRoundDfInplace:
+    def test_round_df_inplace(self):
+        df = pd.DataFrame({
+            "float_3decimals": [45.12345, 46.98765, np.nan],
+            "float_2decimal": [-73.12345, -74.98765, np.nan],
+            "float_not_in_dict": [0.123456, 0.987654, np.nan],
+            "int": [1, 3, np.nan],
+            "string": ["a", "b", "None"]
+        })
+        round_df_inplace(df, {
+            "float_3decimals": 3,
+            "float_2decimal": 2,
+        })
+
+        assert np.array_equal(df["float_3decimals"], [45.123, 46.988, np.nan], equal_nan=True)
+        assert np.array_equal(df["float_2decimal"], [-73.12, -74.99, np.nan], equal_nan=True)
+
+        # other float columns rounded to default 1 decimal
+        assert np.array_equal(df["float_not_in_dict"], [0.1, 1.0, np.nan], equal_nan=True)
+
+        # non float columns should be unchanged
+        assert np.alltrue(df["string"] == ["a", "b", "None"])
+        assert np.array_equal(df["int"], [1, 3, np.nan], equal_nan=True)
