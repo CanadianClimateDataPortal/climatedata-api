@@ -126,7 +126,7 @@ class TestDownloadS2D:
             expected_val = expected_ds[var].isel(lat=lat_idx, lon=lon_idx, time=time_idx).values
 
             if round_value:
-                decimals = S2D_DOWNLOAD_DECIMALS.get(var, S2D_DOWNLOAD_DECIMALS["default"])
+                decimals = S2D_DOWNLOAD_DECIMALS.get(var, 1)
                 expected_val = np.round(expected_val, decimals)
             return expected_val
 
