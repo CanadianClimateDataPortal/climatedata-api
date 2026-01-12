@@ -847,7 +847,7 @@ def download_s2d():
                                     [c for c in app.config['S2D_CLIMATO_DATA_VAR_NAMES'] if c in ds] + \
                                     [c for c in app.config['S2D_SKILL_DATA_VAR_NAMES'] if c in ds]
                     df = df.sort_values(by=['lat', 'lon'])
-                    round_df_inplace(df)
+                    round_df_inplace(df, S2D_DOWNLOAD_DECIMALS)
 
                     if output_format == DOWNLOAD_CSV_FORMAT:
                         csv_filename = f"{file_basename}.csv"
@@ -876,15 +876,19 @@ def download_s2d():
     return send_file(zip_path, download_name=zip_filename, as_attachment=True, mimetype="application/zip")
 
 
-def round_df_inplace(df: pd.DataFrame) -> None:
+def round_df_inplace(df: pd.DataFrame, nb_decimals_by_cols: dict[str, int], nb_decimals_default: int=1) -> None:
     """
-    Rounds the float columns of the input dataframe in place, according to column-specific rules.
+    Rounds the float columns of the input dataframe in place, to a number of decimals.
+
+    :param df: The dataframe to round.
+    :param nb_decimals_by_cols: A dictionary mapping column names with float data to the number of decimals to round to.
+    :param nb_decimals_default: The default number of decimals to round the other float columns to.
     """
     for col in df.columns:
         if not pd.api.types.is_float_dtype(df[col]):
             continue
 
-        decimals = S2D_DOWNLOAD_DECIMALS.get(col, S2D_DOWNLOAD_DECIMALS["default"])
+        decimals = nb_decimals_by_cols.get(col, nb_decimals_default)
 
         def round_decimal(val, decimals):
             if pd.isna(val):

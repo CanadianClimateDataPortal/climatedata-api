@@ -17,13 +17,14 @@ from default_settings import (
     DOWNLOAD_JSON_FORMAT,
     DOWNLOAD_NETCDF_FORMAT,
     S2D_CLIMATO_DATA_VAR_NAMES,
+    S2D_DOWNLOAD_DECIMALS,
     S2D_FILENAME_VALUES,
     S2D_FORECAST_DATA_VAR_NAMES,
     S2D_FORECAST_TYPE_EXPECTED,
     S2D_FORECAST_TYPE_UNUSUAL,
     S2D_FREQUENCY_SEASONAL,
     S2D_SKILL_LEVEL_STR,
-    S2D_VARIABLE_AIR_TEMP, S2D_DOWNLOAD_DECIMALS,
+    S2D_VARIABLE_AIR_TEMP,
 )
 from tests.unit.utils import generate_s2d_test_datasets
 
@@ -354,19 +355,23 @@ class TestCheckPointsOrBbox:
 class TestRoundDfInplace:
     def test_round_df_inplace(self):
         df = pd.DataFrame({
-            "lat": [45.12345, 46.98765, np.nan],
-            "lon": [-73.12345, -74.98765, np.nan],
-            "skill_CRPSS": [0.123456, 0.987654, np.nan],
-            "other": [1.23456, 2.98765, np.nan],
-            "non_float": ["a", "b", "None"]
+            "float_3decimals": [45.12345, 46.98765, np.nan],
+            "float_2decimal": [-73.12345, -74.98765, np.nan],
+            "float_not_in_dict": [0.123456, 0.987654, np.nan],
+            "int": [1, 3, np.nan],
+            "string": ["a", "b", "None"]
         })
-        round_df_inplace(df)
-        # lat/lon rounded to 3 decimals
-        assert np.allclose(df["lat"], [45.123, 46.988, np.nan], equal_nan=True)
-        assert np.allclose(df["lon"], [-73.123, -74.988, np.nan], equal_nan=True)
-        # skill_CRPSS rounded to 2 decimals
-        assert np.allclose(df["skill_CRPSS"], [0.12, 0.99, np.nan], equal_nan=True)
-        # other columns rounded to 1 decimal
-        assert np.allclose(df["other"], [1.2, 3.0, np.nan], equal_nan=True)
+        round_df_inplace(df, {
+            "float_3decimals": 3,
+            "float_2decimal": 2,
+        })
+
+        assert np.array_equal(df["float_3decimals"], [45.123, 46.988, np.nan], equal_nan=True)
+        assert np.array_equal(df["float_2decimal"], [-73.12, -74.99, np.nan], equal_nan=True)
+
+        # other float columns rounded to default 1 decimal
+        assert np.array_equal(df["float_not_in_dict"], [0.1, 1.0, np.nan], equal_nan=True)
+
         # non float columns should be unchanged
-        assert np.alltrue(df["non_float"] == ["a", "b", "None"])
+        assert np.alltrue(df["string"] == ["a", "b", "None"])
+        assert np.array_equal(df["int"], [1, 3, np.nan], equal_nan=True)

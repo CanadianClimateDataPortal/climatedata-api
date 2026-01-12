@@ -297,7 +297,6 @@ S2D_DOWNLOAD_DECIMALS = {
     "lat": 3,
     "lon": 3,
     "skill_CRPSS": 2,
-    "default": 1,
 }
 
 S2D_FILENAME_VALUES = {
