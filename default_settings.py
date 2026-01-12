@@ -293,6 +293,12 @@ S2D_SKILL_LEVEL_STR = {
     3: 'high'
 }
 
+S2D_DOWNLOAD_DECIMALS = {
+    "lat": 3,
+    "lon": 3,
+    "skill_CRPSS": 2,
+}
+
 S2D_FILENAME_VALUES = {
     S2D_VARIABLE_AIR_TEMP: 'MeanTemp',
     S2D_VARIABLE_PRECIP_ACCUM: 'TotalPrecip',
