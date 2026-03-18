@@ -922,7 +922,7 @@ def get_time_period_abbr(freq: str, month: int) -> str:
     if freq == S2D_FREQUENCY_MONTHLY:
         time_period_abbr = calendar.month_abbr[month]
     elif freq == S2D_FREQUENCY_SEASONAL:
-        time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 2) % 12]}"
+        time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 1) % 12 + 1]}"
     else:
         raise ValueError(f"Invalid frequency `{freq}`")
     return time_period_abbr

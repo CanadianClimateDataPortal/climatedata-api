@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from climatedata_api.download import check_points_or_bbox, round_df_inplace
+from climatedata_api.download import check_points_or_bbox, get_time_period_abbr, round_df_inplace
 from default_settings import (
     DOWNLOAD_CSV_FORMAT,
     DOWNLOAD_JSON_FORMAT,
@@ -22,6 +22,7 @@ from default_settings import (
     S2D_FORECAST_DATA_VAR_NAMES,
     S2D_FORECAST_TYPE_EXPECTED,
     S2D_FORECAST_TYPE_UNUSUAL,
+    S2D_FREQUENCY_MONTHLY,
     S2D_FREQUENCY_SEASONAL,
     S2D_SKILL_LEVEL_STR,
     S2D_VARIABLE_AIR_TEMP,
@@ -375,3 +376,25 @@ class TestRoundDfInplace:
         # non float columns should be unchanged
         assert np.alltrue(df["string"] == ["a", "b", "None"])
         assert np.array_equal(df["int"], [1, 3, np.nan], equal_nan=True)
+
+
+class TestGetTimePeriodAbbr:
+    def test_get_time_period_abbr_valid(self):
+        test_values = {
+            (S2D_FREQUENCY_MONTHLY, 1): "Jan",
+            (S2D_FREQUENCY_MONTHLY, 6): "Jun",
+            (S2D_FREQUENCY_MONTHLY, 11): "Nov",
+            (S2D_FREQUENCY_MONTHLY, 12): "Dec",
+            (S2D_FREQUENCY_SEASONAL, 1): "Jan-Mar",
+            (S2D_FREQUENCY_SEASONAL, 6): "Jun-Aug",
+            (S2D_FREQUENCY_SEASONAL, 10): "Oct-Dec",
+            (S2D_FREQUENCY_SEASONAL, 11): "Nov-Jan",
+            (S2D_FREQUENCY_SEASONAL, 12): "Dec-Feb",
+        }
+        for inputs, expected in test_values.items():
+            assert get_time_period_abbr(*inputs) == expected
+
+    def test_get_time_period_abbr_invalid_freq(self):
+        with pytest.raises(ValueError) as e:
+            get_time_period_abbr("wrong_freq", 1)
+        assert "Invalid frequency" in str(e.value)
