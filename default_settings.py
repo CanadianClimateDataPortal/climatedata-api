@@ -124,7 +124,17 @@ VARIABLES = ['allowance',
              'spei_12m',
              'HXmax30',
              'HXmax35',
-             'HXmax40']
+             'HXmax40',
+             'first_snowfall',
+             'last_snowfall',
+             'snowfall_season_length',
+             'snx1day',
+             'sntot',
+             'sn2mm',
+             'sn10mm',
+             'ratot',
+             'rax1day',
+]
 
 SPEI_VARIABLES = ['spei_3m', 'spei_12m']
 
@@ -143,6 +153,7 @@ MONTH_LUT = {
     'dec': ('_12December', 'MS'),
     'all': ('_', 'MS'),  # valid for download only
     'ann': ('', 'YS'),
+    'annual_jul_jun': ('', 'YS-JUL'),
     '2qsapr': ('', '2QS-APR'),
     'winter': ('_winterDJF', 'QS-DEC'),
     'spring': ('_springMAM', 'QS-DEC'),
@@ -193,6 +204,7 @@ MONTH_NUMBER_LUT = {
     'nov': 11,
     'dec': 12,
     'ann': 1,
+    'annual_jul_jun': 7,
     '2qsapr': 4,
     'winter': 12,
     'spring': 3,
