@@ -87,6 +87,10 @@ def output_json(df, var, freq, decimals, period=''):
         calculated = 'by year'
         monthstr = ''
 
+    elif freq == 'YS-JUL':
+        calculated = 'by year (July to June)'
+        monthstr = ''
+
     elif freq == 'MS':
         calculated = 'by month'
         monthstr = f""""month": "{period}","""
