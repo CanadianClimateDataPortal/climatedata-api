@@ -44,7 +44,8 @@ def _format_slices_to_highcharts_series(observations_location_slice, bccaq_locat
     chart_series['modeled_historical_range'] = convert_time_series_dataset_to_list(
         xr.merge([bccaq_location_slice_historical[f'{scenarios[0]}_{var}_p10'],
                   bccaq_location_slice_historical[f'{scenarios[0]}_{var}_p90']]), decimals)
-    # we return values in historical for all scenarios after HISTORICAL_DATE_LIMIT
+
+    # For projection data, filter to only include values after the historical period (HISTORICAL_DATE_LIMIT)
     bccaq_location_slice = bccaq_location_slice.where(
         bccaq_location_slice.time >= np.datetime64(app.config['HISTORICAL_DATE_LIMIT_AFTER'][dataset_name]), drop=True)
 
@@ -57,6 +58,47 @@ def _format_slices_to_highcharts_series(observations_location_slice, bccaq_locat
         chart_series[scenario + '_range'] = convert_time_series_dataset_to_list(
             xr.merge([bccaq_location_slice[f'{scenario}_{var}_p10'],
                       bccaq_location_slice[f'{scenario}_{var}_p90']]), decimals)
+        chart_series[f"delta7100_{scenario}_median"] = convert_time_series_dataset_to_dict(
+            delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p50'], decimals)
+        chart_series[f"delta7100_{scenario}_range"] = convert_time_series_dataset_to_dict(
+            xr.merge([delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p10'],
+                      delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p90']]), decimals)
+
+    if delta_30y_slice[f'{scenarios[0]}_{var}_p50'].attrs.get('units') == 'K':
+        delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
+
+    for scenario in scenarios:
+        # Skip the scenario if it's not available for this variable
+        if f'{scenario}_{var}_p50' not in delta_30y_slice:
+            continue
+        chart_series[f"30y_{scenario}_median"] = convert_time_series_dataset_to_dict(
+            delta_30y_slice[f'{scenario}_{var}_p50'],
+            decimals)
+        chart_series[f"30y_{scenario}_range"] = convert_time_series_dataset_to_dict(
+            xr.merge([delta_30y_slice[f'{scenario}_{var}_p10'],
+                      delta_30y_slice[f'{scenario}_{var}_p90']]), decimals)
+
+    return chart_series
+
+
+def _format_slices_to_highcharts_series_return_periods(observations_location_slice, delta_30y_slice, var, decimals, dataset_name):
+    """
+    Format observations, bccaq and delta_30y slices to dictionary of series ready for highcharts
+    """
+    scenarios = app.config['SCENARIOS'][dataset_name]
+    delta_naming = app.config['DELTA_NAMING'][dataset_name]
+
+    chart_series = {}
+
+    if observations_location_slice[var].attrs.get('units') == 'K':
+        observations_location_slice = observations_location_slice + app.config['KELVIN_TO_C']
+
+    chart_series['30y_observations'] = convert_time_series_dataset_to_dict(observations_location_slice, decimals)
+
+    for scenario in scenarios:
+        # Skip the scenario if it's not available for this variable
+        if f'{scenario}_{var}_p50' not in delta_30y_slice:
+            continue
         chart_series[f"delta7100_{scenario}_median"] = convert_time_series_dataset_to_dict(
             delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p50'], decimals)
         chart_series[f"delta7100_{scenario}_range"] = convert_time_series_dataset_to_dict(
@@ -127,16 +169,23 @@ def generate_charts(var, lat, lon, month='ann'):
         observations_location_slice = None
         observations_dataset = None
 
-    bccaq_dataset = open_dataset(dataset_name, 'allyears', var, msys, monthpath)
-    bccaq_location_slice = bccaq_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
-
-    delta_30y_dataset = bccaq_dataset = open_dataset(dataset_name, '30ygraph', var, msys, monthpath)
+    delta_30y_dataset = open_dataset(dataset_name, '30ygraph', var, msys, monthpath)
     delta_30y_slice = delta_30y_dataset.sel(lon=loni, lat=lati, method='nearest').drop(
         [i for i in delta_30y_dataset.coords if i != 'time']).dropna('time')
 
-    chart_series = _format_slices_to_highcharts_series(observations_location_slice, bccaq_location_slice, delta_30y_slice,
-                                                       var, decimals, dataset_name)
-    bccaq_dataset.close()
+    if var.startswith('rl'):  # return period variables
+        if dataset_name != 'CMIP6':
+            return f"Bad request : return period variables only use the CMIP6 dataset, and has no {dataset_name} data available.\n", 400
+        chart_series = _format_slices_to_highcharts_series_return_periods(
+            observations_location_slice, delta_30y_slice, var, decimals, dataset_name)
+    else:
+        bccaq_dataset = open_dataset(dataset_name, 'allyears', var, msys, monthpath)
+        bccaq_location_slice = bccaq_dataset.sel(lon=loni, lat=lati, method='nearest').drop(['lat', 'lon']).dropna('time')
+
+        chart_series = _format_slices_to_highcharts_series(observations_location_slice, bccaq_location_slice, delta_30y_slice,
+                                                           var, decimals, dataset_name)
+        bccaq_dataset.close()
+
     if observations_dataset:
         observations_dataset.close()
     delta_30y_dataset.close()
