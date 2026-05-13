@@ -333,26 +333,33 @@ def generate_regional_charts(partition, index, var, month='ann'):
         observations_dataset = None
         observations_location_slice = None
 
-    bccaq_dataset = open_dataset(dataset_name, 'allyears', var, msys, partition=partition)
-    bccaq_location_slice = bccaq_dataset.sel(geom=indexi).drop(
-        [i for i in bccaq_dataset.coords if i != 'time']).dropna('time')
-
     delta_30y_dataset = open_dataset(dataset_name, '30ygraph', var, msys, partition=partition)
     delta_30y_slice = delta_30y_dataset.sel(geom=indexi).drop(
         [i for i in delta_30y_dataset.coords if i != 'time']).dropna('time')
 
-    # we filter the appropriate month/season from the MS or QS-DEC file
-    if msys in ["MS", "QS-DEC"]:
-        bccaq_location_slice = bccaq_location_slice.sel(time=(bccaq_location_slice.time.dt.month == monthnumber))
-        if observations_location_slice:
-            observations_location_slice = observations_location_slice.sel(
-                time=(observations_location_slice.time.dt.month == monthnumber))
-        delta_30y_slice = delta_30y_slice.sel(
-            time=(delta_30y_slice.time.dt.month == monthnumber))
+    if var.startswith('rl'):  # return period variables
+        if dataset_name != 'CMIP6':
+            return f"Bad request : return period variables only use the CMIP6 dataset, and has no {dataset_name} data available.\n", 400
+        chart_series = _format_slices_to_highcharts_series_return_periods(
+            observations_location_slice, delta_30y_slice, var, decimals, dataset_name)
+    else:
+        bccaq_dataset = open_dataset(dataset_name, 'allyears', var, msys, partition=partition)
+        bccaq_location_slice = bccaq_dataset.sel(geom=indexi).drop(
+            [i for i in bccaq_dataset.coords if i != 'time']).dropna('time')
 
-    chart_series = _format_slices_to_highcharts_series(observations_location_slice, bccaq_location_slice, delta_30y_slice,
-                                                       var, decimals, dataset_name)
-    bccaq_dataset.close()
+        # we filter the appropriate month/season from the MS or QS-DEC file
+        if msys in ["MS", "QS-DEC"]:
+            bccaq_location_slice = bccaq_location_slice.sel(time=(bccaq_location_slice.time.dt.month == monthnumber))
+            if observations_location_slice:
+                observations_location_slice = observations_location_slice.sel(
+                    time=(observations_location_slice.time.dt.month == monthnumber))
+            delta_30y_slice = delta_30y_slice.sel(
+                time=(delta_30y_slice.time.dt.month == monthnumber))
+
+        chart_series = _format_slices_to_highcharts_series(observations_location_slice, bccaq_location_slice, delta_30y_slice,
+                                                           var, decimals, dataset_name)
+        bccaq_dataset.close()
+
     if observations_dataset:
         observations_dataset.close()
     delta_30y_dataset.close()
