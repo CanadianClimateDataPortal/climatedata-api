@@ -87,13 +87,16 @@ def _format_slices_to_highcharts_series_return_periods(observations_location_sli
     """
     scenarios = app.config['SCENARIOS'][dataset_name]
     delta_naming = app.config['DELTA_NAMING'][dataset_name]
+    # Offset return period by 15 years (half of 30 year period),
+    # to have data points displayed at the middle of the 30y interval on the charts
+    year_offset = 15
 
     chart_series = {}
 
     if observations_location_slice[var].attrs.get('units') == 'K':
         observations_location_slice = observations_location_slice + app.config['KELVIN_TO_C']
 
-    chart_series['30y_observations'] = convert_time_series_dataset_to_dict(observations_location_slice, decimals)
+    chart_series['30y_observations'] = convert_time_series_dataset_to_dict(observations_location_slice, decimals, year_offset)
 
     for scenario in scenarios:
         # Skip the scenario if it's not available for this variable
@@ -102,17 +105,17 @@ def _format_slices_to_highcharts_series_return_periods(observations_location_sli
 
         # Add chart data points
         chart_series[scenario + '_median'] = convert_time_series_dataset_to_list(
-            delta_30y_slice[f'{scenario}_{var}_p50'], decimals)
+            delta_30y_slice[f'{scenario}_{var}_p50'], decimals, year_offset)
         chart_series[scenario + '_range'] = convert_time_series_dataset_to_list(
             xr.merge([delta_30y_slice[f'{scenario}_{var}_p10'],
-                      delta_30y_slice[f'{scenario}_{var}_p90']]), decimals)
+                      delta_30y_slice[f'{scenario}_{var}_p90']]), decimals, year_offset)
 
         # Add 30-year changes
         chart_series[f"delta7100_{scenario}_median"] = convert_time_series_dataset_to_dict(
-            delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p50'], decimals)
+            delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p50'], decimals, year_offset)
         chart_series[f"delta7100_{scenario}_range"] = convert_time_series_dataset_to_dict(
             xr.merge([delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p10'],
-                      delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p90']]), decimals)
+                      delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p90']]), decimals, year_offset)
 
     if delta_30y_slice[f'{scenarios[0]}_{var}_p50'].attrs.get('units') == 'K':
         delta_30y_slice = delta_30y_slice + app.config['KELVIN_TO_C']
@@ -124,10 +127,10 @@ def _format_slices_to_highcharts_series_return_periods(observations_location_sli
             continue
         chart_series[f"30y_{scenario}_median"] = convert_time_series_dataset_to_dict(
             delta_30y_slice[f'{scenario}_{var}_p50'],
-            decimals)
+            decimals, year_offset)
         chart_series[f"30y_{scenario}_range"] = convert_time_series_dataset_to_dict(
             xr.merge([delta_30y_slice[f'{scenario}_{var}_p10'],
-                      delta_30y_slice[f'{scenario}_{var}_p90']]), decimals)
+                      delta_30y_slice[f'{scenario}_{var}_p90']]), decimals, year_offset)
 
     return chart_series
 
