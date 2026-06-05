@@ -96,6 +96,7 @@ def _format_slices_to_highcharts_series_return_periods(observations_location_sli
     if observations_location_slice[var].attrs.get('units') == 'K':
         observations_location_slice = observations_location_slice + app.config['KELVIN_TO_C']
 
+    chart_series['observations'] = convert_time_series_dataset_to_list(observations_location_slice, decimals, year_offset)
     chart_series['30y_observations'] = convert_time_series_dataset_to_dict(observations_location_slice, decimals, year_offset)
 
     for scenario in scenarios:
