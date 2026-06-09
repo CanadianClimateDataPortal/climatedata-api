@@ -338,6 +338,14 @@ def download():
             monthnumber = app.config['MONTH_NUMBER_LUT'][month]
             datasets[0] = datasets[0].sel(time=(datasets[0].time.dt.month == monthnumber))
         limit = app.config['SPEI_DATE_LIMIT']
+    elif var.startswith('rl'):  # return period variables
+        if dataset_name != 'CMIP6':
+            return f"Bad request : `{var}` variable only uses the CMIP6 dataset, and has no {dataset_name} data available.\n", 400
+        if dataset_type != "30ygraph":
+            return f"Bad request : `{var}` variable only has 30-year averages, use the `30ygraph` dataset_type parameter.\n", 400
+        if month != "ann":
+            return f"Bad request : `{var}` variable only supports the annual frequency, use the `ann` month parameter.\n", 400
+        datasets = [open_dataset(dataset_name, dataset_type, var, freq, monthpath)]
     else:
         if month == 'all':
             datasets = [open_dataset(dataset_name, dataset_type, var, freq, m) for m in app.config['ALLMONTHS']]

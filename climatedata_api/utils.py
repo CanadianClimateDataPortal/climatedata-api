@@ -57,7 +57,7 @@ def open_dataset_by_path(path):
         raise FileNotFoundError(f"Dataset file not found: {path}")
 
 
-def convert_time_series_dataset_to_list(dataset, decimals):
+def convert_time_series_dataset_to_list(dataset, decimals, year_offset: int=0):
     """
     Converts xarray dataset to a list.
     We assume that the coordinates are timestamps, which are converted to milliseconds since 1970-01-01 (integer)
@@ -67,11 +67,11 @@ def convert_time_series_dataset_to_list(dataset, decimals):
     def _convert(float_list):
         return float_list if decimals > 0 else list(map(int, float_list))
 
-    return [[int(a[0].timestamp() * 1000)] + _convert(a[1:]) for a in
-            dataset.to_dataframe().astype('float64').round(decimals).reset_index().values.tolist()]
+    df_list = dataset.to_dataframe().astype('float64').round(decimals).reset_index().values.tolist()
+    return [[int(a[0].replace(year=a[0].year + year_offset).timestamp() * 1000)] + _convert(a[1:]) for a in df_list]
 
 
-def convert_time_series_dataset_to_dict(dataset, decimals):
+def convert_time_series_dataset_to_dict(dataset, decimals, year_offset: int=0):
     """
     Converts xarray dataset to a dict.
     We assume that the coordinates are timestamps, which are converted to milliseconds since 1970-01-01 (integer)
@@ -81,8 +81,8 @@ def convert_time_series_dataset_to_dict(dataset, decimals):
     def _convert(float_list):
         return float_list if decimals > 0 else list(map(int, float_list))
 
-    return {int(a[0].timestamp() * 1000): _convert(a[1:]) for a in
-            dataset.to_dataframe().astype('float64').round(decimals).reset_index().values.tolist()}
+    df_list = dataset.to_dataframe().astype('float64').round(decimals).reset_index().values.tolist()
+    return {int(a[0].replace(year=a[0].year + year_offset).timestamp() * 1000): _convert(a[1:]) for a in df_list}
 
 
 SAFE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"  # Safe for URL
