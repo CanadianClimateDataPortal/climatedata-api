@@ -90,11 +90,27 @@ def _format_slices_to_highcharts_series_return_periods(observations_location_sli
     # Offset return period by 15 years (half of 30 year period),
     # to have data points displayed at the middle of the 30y interval on the charts
     year_offset = 15
+    # The last 'modeled historical' data point should end for range 1991-2020,
+    # the first scenario data points should start at range 2001-2030.
+    historical_limit = np.datetime64('2000-01-01')
 
     chart_series = {
         'observations': convert_time_series_dataset_to_list(observations_location_slice, decimals, year_offset),
         '30y_observations': convert_time_series_dataset_to_dict(observations_location_slice, decimals, year_offset)
     }
+
+    # we return the historical values for a single scenario, for years before the historical limit
+    delta_30y_slice_historical = delta_30y_slice.where(
+        delta_30y_slice.time <= historical_limit, drop=True)
+    chart_series['modeled_historical_median'] = convert_time_series_dataset_to_list(
+        delta_30y_slice_historical[f'{scenarios[0]}_{var}_p50'], decimals)
+    chart_series['modeled_historical_range'] = convert_time_series_dataset_to_list(
+        xr.merge([delta_30y_slice_historical[f'{scenarios[0]}_{var}_p10'],
+                  delta_30y_slice_historical[f'{scenarios[0]}_{var}_p90']]), decimals)
+
+    # For projection data, filter to only include values after the historical limit
+    delta_30y_slice = delta_30y_slice.where(
+        delta_30y_slice.time >= historical_limit, drop=True)
 
     for scenario in scenarios:
         # Skip the scenario if it's not available for this variable
