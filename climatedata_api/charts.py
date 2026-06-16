@@ -83,7 +83,8 @@ def _format_slices_to_highcharts_series(observations_location_slice, bccaq_locat
 
 def _format_slices_to_highcharts_series_return_periods(observations_location_slice, delta_30y_slice, var, decimals, dataset_name):
     """
-    Format observations, bccaq and delta_30y slices to dictionary of series ready for highcharts
+    Format observations and delta_30y slices to dictionary of series ready for highcharts.
+    This function is specific to return period data, which doesn't have annual values.
     """
     scenarios = app.config['SCENARIOS'][dataset_name]
     delta_naming = app.config['DELTA_NAMING'][dataset_name]
@@ -108,8 +109,8 @@ def _format_slices_to_highcharts_series_return_periods(observations_location_sli
         xr.merge([delta_30y_slice_historical[f'{scenarios[0]}_{var}_p10'],
                   delta_30y_slice_historical[f'{scenarios[0]}_{var}_p90']]), decimals, year_offset)
 
-    # For projection data, filter to only include values after the historical limit
-    delta_30y_slice = delta_30y_slice.where(
+    # For scenarios' chart data, filter to only include values after the historical limit
+    delta_30y_chart_slice = delta_30y_slice.where(
         delta_30y_slice.time >= historical_limit, drop=True)
 
     for scenario in scenarios:
@@ -119,10 +120,10 @@ def _format_slices_to_highcharts_series_return_periods(observations_location_sli
 
         # Add chart data points
         chart_series[scenario + '_median'] = convert_time_series_dataset_to_list(
-            delta_30y_slice[f'{scenario}_{var}_p50'], decimals, year_offset)
+            delta_30y_chart_slice[f'{scenario}_{var}_p50'], decimals, year_offset)
         chart_series[scenario + '_range'] = convert_time_series_dataset_to_list(
-            xr.merge([delta_30y_slice[f'{scenario}_{var}_p10'],
-                      delta_30y_slice[f'{scenario}_{var}_p90']]), decimals, year_offset)
+            xr.merge([delta_30y_chart_slice[f'{scenario}_{var}_p10'],
+                      delta_30y_chart_slice[f'{scenario}_{var}_p90']]), decimals, year_offset)
 
         # Add 30-year changes
         chart_series[f"delta7100_{scenario}_median"] = convert_time_series_dataset_to_dict(
@@ -131,11 +132,7 @@ def _format_slices_to_highcharts_series_return_periods(observations_location_sli
             xr.merge([delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p10'],
                       delta_30y_slice[f'{scenario}_{var}_{delta_naming}_p90']]), decimals, year_offset)
 
-    # Add 30-year values
-    for scenario in scenarios:
-        # Skip the scenario if it's not available for this variable
-        if f'{scenario}_{var}_p50' not in delta_30y_slice:
-            continue
+        # Add 30-year values
         chart_series[f"30y_{scenario}_median"] = convert_time_series_dataset_to_dict(
             delta_30y_slice[f'{scenario}_{var}_p50'],
             decimals, year_offset)
