@@ -3,16 +3,15 @@ import io
 import math
 from typing import Tuple
 
-import xarray as xr
 from clisops.core.subset import subset_bbox
+from dateutil.relativedelta import relativedelta
 from flask import current_app as app
-import geopandas as gpd
 from scipy.spatial import KDTree
-import pickle
+import geopandas as gpd
 import numpy as np
+import pickle
+import xarray as xr
 import zipfile
-
-from werkzeug.exceptions import BadRequest
 
 
 def open_dataset(dataset_name, filetype, var, freq, period=None, partition=None):
@@ -262,10 +261,23 @@ def load_s2d_datasets_by_periods(var: str,
         freq=freq,
         ref_period=f"{ref_period.month:02d}"
     ))
-    for period_date in period_dates:
-        if period_date.month not in skill_dataset['time'].dt.month.values:
-            raise ValueError(f"Bad request: period {period_date} not available in skill dataset")
-    skill_slice = skill_dataset.sel(time=skill_dataset['time'].dt.month.isin([d.month for d in period_dates]))
+
+    # skill data is stored with a starting year of 1991, to fit along with climatology data,
+    # so requested period_dates must be shifted accordingly
+    year_delta = ref_period.year - 1991
+    targets = [
+        d - relativedelta(years=year_delta)
+        for d in period_dates
+    ]
+
+    available_times = skill_dataset.time.to_index()
+    for target_date in targets:
+        if target_date not in available_times:
+            raise ValueError(
+                f"Bad request: period {target_date} not available in skill dataset"
+            )
+
+    skill_slice = skill_dataset.sel(time=targets)
 
     return forecast_slice, climatology_slice, skill_slice
 

@@ -275,7 +275,7 @@ def get_s2d_release_date(var, freq):
 def get_s2d_gridded_values(lat, lon, var, freq):
     """
     Fetch specific data within the S2D dataset
-    e.g. : curl 'http://localhost:5000/get-s2d-gridded-values/61.04/-61.11?/air_temp/seasonal?period=2025-07'
+    e.g. : curl 'http://localhost:5000/get-s2d-gridded-values/51.04/-101.11/air_temp/seasonal?period=2025-07'
     """
     try:
         latitude = float(lat)
