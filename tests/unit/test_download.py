@@ -22,6 +22,9 @@ from default_settings import (
     S2D_FORECAST_DATA_VAR_NAMES,
     S2D_FORECAST_TYPE_EXPECTED,
     S2D_FORECAST_TYPE_UNUSUAL,
+    S2D_FREQUENCY_DECADAL_ANN,
+    S2D_FREQUENCY_DECADAL_MAY_SEP,
+    S2D_FREQUENCY_DECADAL_NOV_MAR,
     S2D_FREQUENCY_MONTHLY,
     S2D_FREQUENCY_SEASONAL,
     S2D_SKILL_LEVEL_STR,
@@ -381,20 +384,23 @@ class TestRoundDfInplace:
 class TestGetTimePeriodAbbr:
     def test_get_time_period_abbr_valid(self):
         test_values = {
-            (S2D_FREQUENCY_MONTHLY, 1): "Jan",
-            (S2D_FREQUENCY_MONTHLY, 6): "Jun",
-            (S2D_FREQUENCY_MONTHLY, 11): "Nov",
-            (S2D_FREQUENCY_MONTHLY, 12): "Dec",
-            (S2D_FREQUENCY_SEASONAL, 1): "Jan-Mar",
-            (S2D_FREQUENCY_SEASONAL, 6): "Jun-Aug",
-            (S2D_FREQUENCY_SEASONAL, 10): "Oct-Dec",
-            (S2D_FREQUENCY_SEASONAL, 11): "Nov-Jan",
-            (S2D_FREQUENCY_SEASONAL, 12): "Dec-Feb",
+            (S2D_FREQUENCY_MONTHLY, 2026, 1): "Jan",
+            (S2D_FREQUENCY_MONTHLY, 2026, 6): "Jun",
+            (S2D_FREQUENCY_MONTHLY, 2026, 11): "Nov",
+            (S2D_FREQUENCY_MONTHLY, 2026, 12): "Dec",
+            (S2D_FREQUENCY_SEASONAL, 2026, 1): "Jan-Mar",
+            (S2D_FREQUENCY_SEASONAL, 2026, 6): "Jun-Aug",
+            (S2D_FREQUENCY_SEASONAL, 2026, 10): "Oct-Dec",
+            (S2D_FREQUENCY_SEASONAL, 2026, 11): "Nov-Jan",
+            (S2D_FREQUENCY_SEASONAL, 2026, 12): "Dec-Feb",
+            (S2D_FREQUENCY_DECADAL_ANN, 2026, 1): "2026-2030",
+            (S2D_FREQUENCY_DECADAL_MAY_SEP, 2030, 1): "2030-2034",
+            (S2D_FREQUENCY_DECADAL_NOV_MAR, 2026, 3): "2026-2030",
         }
         for inputs, expected in test_values.items():
             assert get_time_period_abbr(*inputs) == expected
 
     def test_get_time_period_abbr_invalid_freq(self):
         with pytest.raises(ValueError) as e:
-            get_time_period_abbr("wrong_freq", 1)
+            get_time_period_abbr("wrong_freq", 2026, 1)
         assert "Invalid frequency" in str(e.value)
