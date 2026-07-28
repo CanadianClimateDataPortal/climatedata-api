@@ -37,6 +37,7 @@ from default_settings import (
     S2D_DOWNLOAD_DECIMALS,
     S2D_FILENAME_VALUES,
     S2D_FORECAST_TYPE_EXPECTED,
+    S2D_FREQUENCIES_DECADAL,
     S2D_FREQUENCY_MONTHLY,
     S2D_FREQUENCY_SEASONAL,
     S2D_SKILL_LEVEL_STR,
@@ -687,41 +688,41 @@ def download_s2d():
         JSON format:
         curl  -s http://localhost:5000/download-s2d -H "Content-Type: application/json" -X POST -d '{
           "var" : "air_temp",
-          'format' : 'json',
-          'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
-          'forecast_type': 'unusual',
-          'frequency': 'monthly',
-          'periods': ['2025-06', '2025-12']
+          "format" : "json",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
+          "forecast_type": "unusual",
+          "frequency": "monthly",
+          "periods": ["2025-06", "2025-12"]
         }'
 
         CSV format:
         curl  -s http://localhost:5000/download-s2d -H "Content-Type: application/json" -X POST -d '{
           "var" : "precip_accum",
-          'format' : 'csv',
-          'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
-          'forecast_type': 'expected',
-          'frequency': 'seasonal',
-          'periods': ['2025-06', '2025-12']
+          "format" : "csv",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
+          "forecast_type": "expected",
+          "frequency": "seasonal",
+          "periods": ["2025-06", "2025-12"]
         }'
 
         Netcdf Format
         curl  -s http://localhost:5000/download-s2d -H "Content-Type: application/json" -X POST -d '{
           "var" : "precip_accum",
-          'format' : 'netcdf',
-          'points': [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
-          'forecast_type': 'unusual',
-          'frequency': 'seasonal',
-          'periods': ['2025-06', '2025-12']
+          "format" : "netcdf",
+          "points": [[45.6323041086555,-73.81242277462837], [45.62317816394269,-73.71014590931205], [45.62317725541931,-73.61542460410394], [45.71149235185937,-73.6250345109122]],
+          "forecast_type": "unusual",
+          "frequency": "seasonal",
+          "periods": ["2025-06", "2025-12"]
         }'
 
         bbox example (csv):
         curl -s http://localhost:5000/download-s2d -H "Content-Type: application/json" -X POST -d '{
           "var" : "air_temp",
-          'format' : 'csv',
+          "format" : "csv",
           "bbox": [45.704236999914066, -72.1259641636298, 45.86229102811587, -71.6173341617058],
-          'forecast_type': 'expected',
-          'frequency': 'monthly',
-          'periods': ['2025-06', '2025-12']
+          "forecast_type": "expected",
+          "frequency": "monthly",
+          "periods": ["2025-06", "2025-12"]
         }'
 
         The request JSON payload uses those parameters:
@@ -774,7 +775,7 @@ def download_s2d():
     try:
         forecast_slice, climatology_slice, skill_slice = load_s2d_datasets_by_periods(var, freq, period_dates, release_date)
     except ValueError as e:
-        return e, 400
+        return str(e), 400
 
     # Save coordinates metadata before regridding
     lat_attrs = forecast_slice['lat'].attrs
@@ -793,17 +794,19 @@ def download_s2d():
     merged_slices = {}
     for period_date in period_dates:
         month = period_date.month
-        time_period_abbr = get_time_period_abbr(freq, month)
+        year = period_date.year
+        time_period_abbr = get_time_period_abbr(freq, year, month)
 
-        month_slices = []
-        for ds in [forecast_slice, climatology_slice, skill_slice]:
-            # Select desired month
-            month_slice = ds.sel(time=ds["time"].dt.month == month).drop_vars("time").squeeze("time", drop=True)
-            month_slices.append(month_slice)
+        period_slices = []
+        delta_year = release_date.year - 1991
+        for ds, target_year in [(forecast_slice, year), (climatology_slice, 1991), (skill_slice, year - delta_year)]:
+            # Select desired period
+            period_slice = ds.sel(time=((ds["time"].dt.month == month) & (ds["time"].dt.year == target_year))).drop_vars("time").squeeze("time", drop=True)
+            period_slices.append(period_slice)
 
-        # Merge data for this month
+        # Merge data for this period
         merged_slice = xr.merge(
-            month_slices,
+            period_slices,
             combine_attrs='override'
         )
 
@@ -927,7 +930,7 @@ def write_metadata_file(path: str, dataset: xr.Dataset) -> None:
                 f.write(f"{key}: {value}\n")
 
 
-def get_time_period_abbr(freq: str, month: int) -> str:
+def get_time_period_abbr(freq: str, year: int, month: int) -> str:
     """
     Returns the time period abbreviation based on frequency and month.
     """
@@ -935,6 +938,8 @@ def get_time_period_abbr(freq: str, month: int) -> str:
         time_period_abbr = calendar.month_abbr[month]
     elif freq == S2D_FREQUENCY_SEASONAL:
         time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 1) % 12 + 1]}"
+    elif freq in S2D_FREQUENCIES_DECADAL:
+        time_period_abbr = f"{year}-{year + 4}"
     else:
         raise ValueError(f"Invalid frequency `{freq}`")
     return time_period_abbr

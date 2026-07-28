@@ -249,10 +249,12 @@ def load_s2d_datasets_by_periods(var: str,
         var=var,
         freq=freq
     ))
-    climatology_period_dates = []
+    # Use a set to avoid duplicate year-month values. This could happen with decadal data
+    # which can have the same month '01' but for different requested years, which get replaced by '1991'
+    climatology_period_dates = set()
     for period_date in period_dates:
-        climatology_period_dates.append(period_date.replace(year=1991))
-    climatology_slice = climatology_dataset.sel(time=climatology_period_dates)
+        climatology_period_dates.add(period_date.replace(year=1991))
+    climatology_slice = climatology_dataset.sel(time=list(climatology_period_dates))
 
     # Load skill data
     skill_dataset = open_dataset_by_path(app.config['NETCDF_S2D_SKILL_FILENAME_FORMATS'].format(
