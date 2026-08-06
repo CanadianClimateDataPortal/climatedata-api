@@ -2,6 +2,7 @@ import base64
 import functools
 import json
 import os
+from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -24,15 +25,27 @@ from urllib.parse import urlparse
 
 
 def get_selenium_driver():
-    chrome_service = Service(executable_path='/usr/bin/chromedriver')
-
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--window-size=2560,1440")
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')  # /dev/shm can be too small within docker
+    # Chrome stops at its certificate interstitial when the page it is asked to capture
+    # serves an expired or self-signed certificate. That interstitial carries a <body>,
+    # so the body-visibility wait in get_raster() passes, and the prepare_raster call then
+    # runs against Chrome's warning page — surfacing as "$ is not defined" rather than as a
+    # certificate problem. Environments in that position opt in through this setting.
+    # See RASTER_IGNORE_CERT_ERRORS in default_settings.py for why it defaults to False.
+    if app.config.get('RASTER_IGNORE_CERT_ERRORS', False):
+        chrome_options.add_argument('--ignore-certificate-errors')
 
-    return webdriver.Chrome(service=chrome_service, options=chrome_options)
+    # Use the driver the Dockerfile installs whenever it is present, and let
+    # CHROMEDRIVER_PATH point elsewhere. Environments without a preinstalled driver
+    # fall through to Selenium Manager, which resolves a version-matched one itself.
+    driver_path = Path(os.getenv("CHROMEDRIVER_PATH", "/usr/bin/chromedriver"))
+    if driver_path.is_file():
+        return webdriver.Chrome(service=Service(str(driver_path)), options=chrome_options)
+    return webdriver.Chrome(options=chrome_options)
 
 
 def get_raster(url, output_img_path, location_popup_html=None, marker_lat_lon=None):

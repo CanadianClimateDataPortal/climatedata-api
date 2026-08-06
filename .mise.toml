@@ -1,0 +1,95 @@
+[settings]
+# Python 3.9.16 predates GitHub artifact attestations; this matches Dockerfile.
+python.github_attestations = false
+
+[tools]
+python = "3.9.16"
+uv = "latest"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+
+# Local-only Flask overrides, loaded by `app.py` through `from_envvar(..., silent=True)`.
+# The file is gitignored and optional, so an environment without it keeps every
+# default in `default_settings.py` unchanged. An absolute path is required because
+# Flask resolves a relative one against the package directory rather than the repo root.
+CLIMATEDATA_FLASK_SETTINGS = "{{config_root}}/local_settings.py"
+
+# `mise run` (or `mise`) runs this default task. It lists the available tasks
+# and prints the same local reminders as `mise info`.
+[tasks.default]
+description = "List project tasks and show local reminders"
+run = ["mise tasks", "mise info"]
+
+[tasks.info]
+description = "Show local setup reminders"
+run = [
+  "echo 'ClimateData API local reminders:'",
+  "echo '  - Python 3.9.16 and uv are managed by mise.'",
+  "echo '  - Run: mise run setup'",
+  "echo '  - Mount bf_scratch at ./datasets before exercising data endpoints.'",
+  "echo '  - Start HTTP API: mise run run'",
+  "echo '  - Start HTTPS API: mise run https'",
+  "echo '  - The HTTPS certificate is self-signed; accept the browser warning.'",
+  "echo '  - In another terminal: mise run selenium -- --url https://127.0.0.1:5443/'",
+  "echo '  - Chrome must be installed for Selenium.'",
+  "echo '  - Update dependencies with: mise run update'",
+]
+
+# First-time setup (or after cloning).
+[tasks.setup]
+description = "Create/update the project uv environment"
+run = [
+  "uv sync --group dev",
+  "echo 'Next: mise run run (after mounting ./datasets if data endpoints are needed)'",
+]
+
+# Update dependency constraints deliberately, then install the resulting lockfile.
+# Use `mise run update` after editing pyproject.toml.
+[tasks.update]
+description = "Resolve updated dependencies and sync the environment"
+run = [
+  "uv lock --upgrade",
+  "uv sync --group dev",
+  "echo 'Next: review uv.lock, then run mise run test'",
+]
+
+[tasks.cert]
+description = "Create a local self-signed HTTPS certificate"
+run = [
+  "mkdir -p .certs",
+  "test -f .certs/localhost-cert.pem -a -f .certs/localhost-key.pem || openssl req -x509 -newkey rsa:2048 -nodes -keyout .certs/localhost-key.pem -out .certs/localhost-cert.pem -days 30 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'",
+  "echo 'Next: open https://127.0.0.1:5443/ and accept the self-signed certificate warning.'",
+]
+
+[tasks.run]
+description = "Run the API locally over HTTP (datasets must be mounted)"
+depends = ["setup"]
+run = [
+  "echo 'API is starting at http://127.0.0.1:5000/; stop it with Ctrl-C.'",
+  "uv run python wsgi.py",
+]
+
+[tasks.https]
+description = "Run the API locally over HTTPS with a self-signed certificate"
+depends = ["setup", "cert"]
+run = [
+  "echo 'API is starting at https://127.0.0.1:5443/; stop it with Ctrl-C.'",
+  "uv run python -m tools.run_https",
+]
+
+[tasks.test]
+description = "Run the test suite"
+depends = ["setup"]
+run = [
+  "uv run pytest tests",
+  "echo 'Next: mise run info (or inspect the test output for required services/data)'",
+]
+
+[tasks.selenium]
+description = "Open the running API in Chrome with Selenium"
+depends = ["setup"]
+run = [
+  "uv run python tools/selenium_smoke.py",
+  "echo 'Next: mise run test or make test'",
+]

@@ -25,7 +25,8 @@ location / {
     gzip on;
     gzip_types text/html application/json;
     uwsgi_pass unix:/home/uwsgi/run/uwsgi.sock;
-    add_header 'Access-Control-Allow-Origin' '*';
+    # CORS is configured by Flask; do not add a second Access-Control-Allow-Origin
+    # header here because browsers reject duplicate CORS headers.
 }
 
 location /geoserver/ {

@@ -260,6 +260,15 @@ SYSTEM_CHECKS = [
      'validator': json.loads}
 ]
 
+# Browser origins allowed to call this API. Keep these as full origins (including
+# the scheme) rather than bare hostnames; CORS compares the Origin header exactly.
+CORS_ORIGINS = [
+    "https://climatedata.ca",
+    "https://donneesclimatiques.ca",
+    "https://dev-en.climatedata.ca",
+    "https://dev-fr.climatedata.ca",
+]
+
 ALLOWED_DOMAINS = [
     "localhost:80",
     "localhost:5000",
@@ -268,6 +277,15 @@ ALLOWED_DOMAINS = [
     "dev-en.climatedata.ca",
     "dev-fr.climatedata.ca",
 ]
+
+# Accept any certificate when the screenshot browser loads the page it captures.
+# Certificate validation proves identity, and the connection stays encrypted either
+# way, so the exposure this opens is an active on-path attacker rather than an
+# eavesdropper. ALLOWED_DOMAINS above already constrains which host that page lives on.
+# Environments serving the map over an expired or self-signed certificate set this to
+# True. Deployed environments leave it False, which keeps this service failing loudly
+# on a lapsed certificate — it is the only automated consumer positioned to notice one.
+RASTER_IGNORE_CERT_ERRORS = False
 
 SALT = "override-me"
 

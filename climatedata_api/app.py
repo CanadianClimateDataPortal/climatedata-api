@@ -4,6 +4,7 @@ import sentry_sdk
 from werkzeug.exceptions import BadRequest
 import xarray as xr
 from flask import Flask
+from flask_cors import CORS
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 from climatedata_api.charts import generate_charts, generate_regional_charts
@@ -30,12 +31,26 @@ app = Flask(__name__)
 app.config.from_object('default_settings')
 app.config.from_envvar('CLIMATEDATA_FLASK_SETTINGS', silent=True)
 
+CORS(
+    app,
+    origins=app.config['CORS_ORIGINS'],
+    methods=['GET', 'POST', 'OPTIONS'],
+    allow_headers=['Content-Type'],
+    max_age=86400,
+)
+
 if 'SENTRY_DSN' in app.config:
     sentry_sdk.init(
         app.config['SENTRY_DSN'],
         environment=app.config['SENTRY_ENV'],
         integrations=[FlaskIntegration()]
     )
+
+@app.route('/')
+def index():
+    """Provide a small landing page for local checks and browser smoke tests."""
+    return '<!doctype html><title>ClimateData API</title><h1>ClimateData API</h1><p>API is running.</p>'
+
 
 # charts routes
 app.add_url_rule('/generate-charts/<lat>/<lon>/<var>/<month>', view_func=generate_charts)

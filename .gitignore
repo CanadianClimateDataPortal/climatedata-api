@@ -8,6 +8,8 @@ venv
 datasets
 .pytest_cache
 cache
+.certificates
+.certs
 *.zip
 *.csv
 *.json
