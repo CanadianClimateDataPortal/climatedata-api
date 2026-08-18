@@ -3,16 +3,17 @@ import io
 import math
 from typing import Tuple
 
-import xarray as xr
 from clisops.core.subset import subset_bbox
+from dateutil.relativedelta import relativedelta
 from flask import current_app as app
-import geopandas as gpd
 from scipy.spatial import KDTree
-import pickle
+import geopandas as gpd
 import numpy as np
+import pickle
+import xarray as xr
 import zipfile
 
-from werkzeug.exceptions import BadRequest
+from default_settings import S2D_HISTORICAL_REFERENCE_YEAR
 
 
 def open_dataset(dataset_name, filetype, var, freq, period=None, partition=None):
@@ -250,10 +251,12 @@ def load_s2d_datasets_by_periods(var: str,
         var=var,
         freq=freq
     ))
-    climatology_period_dates = []
+    # Use a set to avoid duplicate year-month values. This could happen with decadal data
+    # which can have the same month '01' but for different requested years, which get replaced by the historical reference year.
+    climatology_period_dates = set()
     for period_date in period_dates:
-        climatology_period_dates.append(period_date.replace(year=1991))
-    climatology_slice = climatology_dataset.sel(time=climatology_period_dates)
+        climatology_period_dates.add(period_date.replace(year=S2D_HISTORICAL_REFERENCE_YEAR))
+    climatology_slice = climatology_dataset.sel(time=list(climatology_period_dates))
 
     # Load skill data
     skill_dataset = open_dataset_by_path(app.config['NETCDF_S2D_SKILL_FILENAME_FORMATS'].format(
@@ -262,10 +265,23 @@ def load_s2d_datasets_by_periods(var: str,
         freq=freq,
         ref_period=f"{ref_period.month:02d}"
     ))
-    for period_date in period_dates:
-        if period_date.month not in skill_dataset['time'].dt.month.values:
-            raise ValueError(f"Bad request: period {period_date} not available in skill dataset")
-    skill_slice = skill_dataset.sel(time=skill_dataset['time'].dt.month.isin([d.month for d in period_dates]))
+
+    # Skill data is stored with a starting year based on the historical reference,
+    # so requested period_dates must be shifted accordingly
+    year_delta = ref_period.year - S2D_HISTORICAL_REFERENCE_YEAR
+    targets = [
+        d - relativedelta(years=year_delta)
+        for d in period_dates
+    ]
+
+    available_times = skill_dataset.time.to_index()
+    for target_date in targets:
+        if target_date not in available_times:
+            raise ValueError(
+                f"Bad request: period {target_date} not available in skill dataset"
+            )
+
+    skill_slice = skill_dataset.sel(time=targets)
 
     return forecast_slice, climatology_slice, skill_slice
 
