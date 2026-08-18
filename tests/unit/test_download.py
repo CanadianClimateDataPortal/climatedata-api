@@ -27,6 +27,7 @@ from default_settings import (
     S2D_FREQUENCY_DECADAL_NOV_MAR,
     S2D_FREQUENCY_MONTHLY,
     S2D_FREQUENCY_SEASONAL,
+    S2D_HISTORICAL_REFERENCE_YEAR,
     S2D_SKILL_LEVEL_STR,
     S2D_VARIABLE_AIR_TEMP,
 )
@@ -45,7 +46,7 @@ class TestDownloadS2D:
         and checks the contents of the returned zip file.
         """
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
-        skill_times = [f"1991-{month:02d}-01" for month in range(1, 13)]
+        skill_times = [f"{S2D_HISTORICAL_REFERENCE_YEAR}-{month:02d}-01" for month in range(1, 13)]
         forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(
             lat_min=45.0,
             lat_max=70.0,
@@ -118,10 +119,10 @@ class TestDownloadS2D:
                 month_sel = month
             elif var in S2D_CLIMATO_DATA_VAR_NAMES:
                 expected_ds = climato_ds
-                month_sel = month.replace(year=1991)
+                month_sel = month.replace(year=S2D_HISTORICAL_REFERENCE_YEAR)
             else:
                 expected_ds = skill_ds
-                month_sel = month.replace(year=1991)
+                month_sel = month.replace(year=S2D_HISTORICAL_REFERENCE_YEAR)
 
             lat_idx = get_nearest_index(expected_ds.lat, lat)
             lon_idx = get_nearest_index(expected_ds.lon, lon)

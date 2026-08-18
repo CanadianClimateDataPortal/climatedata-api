@@ -40,6 +40,7 @@ from default_settings import (
     S2D_FREQUENCIES_DECADAL,
     S2D_FREQUENCY_MONTHLY,
     S2D_FREQUENCY_SEASONAL,
+    S2D_HISTORICAL_REFERENCE_YEAR,
     S2D_SKILL_LEVEL_STR,
 )
 
@@ -797,10 +798,11 @@ def download_s2d():
         year = period_date.year
         time_period_abbr = get_time_period_abbr(freq, year, month)
 
+        # Select data from desired period.
+        # Note that climatology and skill data are using year values based on their historical reference.
         period_slices = []
-        delta_year = release_date.year - 1991
-        for ds, target_year in [(forecast_slice, year), (climatology_slice, 1991), (skill_slice, year - delta_year)]:
-            # Select desired period
+        delta_year = release_date.year - S2D_HISTORICAL_REFERENCE_YEAR
+        for ds, target_year in [(forecast_slice, year), (climatology_slice, S2D_HISTORICAL_REFERENCE_YEAR), (skill_slice, year - delta_year)]:
             period_slice = ds.sel(time=((ds["time"].dt.month == month) & (ds["time"].dt.year == target_year))).drop_vars("time").squeeze("time", drop=True)
             period_slices.append(period_slice)
 

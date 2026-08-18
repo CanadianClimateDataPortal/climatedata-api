@@ -13,6 +13,8 @@ import pickle
 import xarray as xr
 import zipfile
 
+from default_settings import S2D_HISTORICAL_REFERENCE_YEAR
+
 
 def open_dataset(dataset_name, filetype, var, freq, period=None, partition=None):
     """
@@ -250,10 +252,10 @@ def load_s2d_datasets_by_periods(var: str,
         freq=freq
     ))
     # Use a set to avoid duplicate year-month values. This could happen with decadal data
-    # which can have the same month '01' but for different requested years, which get replaced by '1991'
+    # which can have the same month '01' but for different requested years, which get replaced by the historical reference year.
     climatology_period_dates = set()
     for period_date in period_dates:
-        climatology_period_dates.add(period_date.replace(year=1991))
+        climatology_period_dates.add(period_date.replace(year=S2D_HISTORICAL_REFERENCE_YEAR))
     climatology_slice = climatology_dataset.sel(time=list(climatology_period_dates))
 
     # Load skill data
@@ -264,9 +266,9 @@ def load_s2d_datasets_by_periods(var: str,
         ref_period=f"{ref_period.month:02d}"
     ))
 
-    # skill data is stored with a starting year of 1991, to fit along with climatology data,
+    # Skill data is stored with a starting year based on the historical reference,
     # so requested period_dates must be shifted accordingly
-    year_delta = ref_period.year - 1991
+    year_delta = ref_period.year - S2D_HISTORICAL_REFERENCE_YEAR
     targets = [
         d - relativedelta(years=year_delta)
         for d in period_dates

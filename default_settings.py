@@ -281,9 +281,9 @@ S2D_VARIABLES = [
 
 S2D_FREQUENCY_MONTHLY = 'monthly'
 S2D_FREQUENCY_SEASONAL = 'seasonal'
-S2D_FREQUENCY_DECADAL_ANN = "decadal-ann"
-S2D_FREQUENCY_DECADAL_MAY_SEP = "decadal-may-sep"
-S2D_FREQUENCY_DECADAL_NOV_MAR = "decadal-nov-mar"
+S2D_FREQUENCY_DECADAL_ANN = 'decadal-ann'
+S2D_FREQUENCY_DECADAL_MAY_SEP = 'decadal-may-sep'
+S2D_FREQUENCY_DECADAL_NOV_MAR = 'decadal-nov-mar'
 
 S2D_FREQUENCIES_DECADAL = [S2D_FREQUENCY_DECADAL_ANN, S2D_FREQUENCY_DECADAL_MAY_SEP, S2D_FREQUENCY_DECADAL_NOV_MAR ]
 
@@ -298,24 +298,28 @@ S2D_FORECAST_TYPES = [
 ]
 
 S2D_FORECAST_DATA_VAR_NAMES = [
-    "prob_unusually_low",
-    "prob_below_normal",
-    "prob_near_normal",
-    "prob_above_normal",
-    "prob_unusually_high"
+    'prob_unusually_low',
+    'prob_below_normal',
+    'prob_near_normal',
+    'prob_above_normal',
+    'prob_unusually_high'
 ]
 
+# Climatology and skill data are based on 1991-2020 data, so they are using time coordinates that are starting from the
+# reference year 1991.
+S2D_HISTORICAL_REFERENCE_YEAR = 1991
+
 S2D_CLIMATO_DATA_VAR_NAMES = [
-    "cutoff_unusually_low_p20",
-    "cutoff_below_normal_p33",
-    "historical_median_p50",
-    "cutoff_above_normal_p66",
-    "cutoff_unusually_high_p80"
+    'cutoff_unusually_low_p20',
+    'cutoff_below_normal_p33',
+    'historical_median_p50',
+    'cutoff_above_normal_p66',
+    'cutoff_unusually_high_p80'
 ]
 
 S2D_SKILL_DATA_VAR_NAMES = [
-    "skill_CRPSS",
-    "skill_level"
+    'skill_CRPSS',
+    'skill_level'
 ]
 
 S2D_SKILL_LEVEL_STR = {
@@ -326,9 +330,9 @@ S2D_SKILL_LEVEL_STR = {
 }
 
 S2D_DOWNLOAD_DECIMALS = {
-    "lat": 3,
-    "lon": 3,
-    "skill_CRPSS": 2,
+    'lat': 3,
+    'lon': 3,
+    'skill_CRPSS': 2,
 }
 
 S2D_FILENAME_VALUES = {
