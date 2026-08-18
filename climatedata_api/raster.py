@@ -48,9 +48,11 @@ def get_raster(url, output_img_path, location_popup_html=None, marker_lat_lon=No
             curl 'http://localhost:5000/raster?url=aHR0cHM6Ly9jbGltYXRlZGF0YS5jcmltLmNhL2V4cGxvcmUvbG9jYXRpb24vP2xvYz1FRkpHVSZsb2NhdGlvbi1zZWxlY3QtdGVtcGVyYXR1cmU9dHhfbWF4JmxvY2F0aW9uLXNlbGVjdC1wcmVjaXBpdGF0aW9uPXIxbW0mbG9jYXRpb24tc2VsZWN0LW90aGVyPWZyb3N0X2RheXN8LTQwOTIzNzYwOQ%3D%3D'  > output.png
 
         :param url: URL to raster
-        :param output_img_path: output path of the raster
-        :param location_popup_html: optional array of HTML strings to pass to JavaScript
-        :param marker_lat_lon: optional [lat, lon] pair to pass to JavaScript
+        :param output_img_path: Output path of the raster
+        :param location_popup_html: Optional array of HTML strings to pass to JavaScript.
+                                    See `post_raster_route()` for details.
+        :param marker_lat_lon: Optional [lat, lon] pair to pass to JavaScript.
+                               See `post_raster_route()` for details.
     """
     driver = get_selenium_driver()
     driver.get(url)
@@ -110,9 +112,13 @@ def decode_and_validate_url(encoded_url):
 def post_raster_route():
     """
         Validate encoded URL and render a raster image if valid
-        Payload content that is passed to the Javascript to render the raster:
-        - locationPopupHtml: array of 1 or 2 strings containing the HTML content of a location popup displayed on the map
-        - markerLatLon : array of 2 floats containing the lat/lon coordinates of the marker displayed on the map
+        This route accepts a POST JSON payload that is passed to the Javascript to render the raster:
+        - locationPopupHtml: Array of 1 or 2 strings each containing the HTML content of a location popup displayed on the map.
+                             Supports 2 distinct popups, for the case of comparing scenarios on the map.
+        - markerLatLon : Array of 2 floats containing the lat/lon coordinates of the marker displayed on the map.
+                         Note that when comparing scenarios, they both use the same lat/long coordinates for the marker.
+        These elements have to be passed separately from the encoded URL, since they are not embedded in the url and
+        need to be specifically recreated after opening the URL on the headless browser to prepare the screenshot.
 
         Example POST payload:
         {
@@ -120,7 +126,7 @@ def post_raster_route():
             'markerLatLon': [45.6323,-73.8124],
         }
 
-        :return: response containing the output image
+        :return: Response containing the output image
     """
     location_popup_html = None
     marker_lat_lon = None
