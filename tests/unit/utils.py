@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 
-from default_settings import S2D_FORECAST_DATA_VAR_NAMES, S2D_CLIMATO_DATA_VAR_NAMES
+from default_settings import S2D_FORECAST_DATA_VAR_NAMES, S2D_CLIMATO_DATA_VAR_NAMES, S2D_HISTORICAL_REFERENCE_YEAR
 
 
 def generate_s2d_test_datasets(lat_min: float,
@@ -41,7 +41,7 @@ def generate_s2d_test_datasets(lat_min: float,
         },
     )
 
-    climato_times = [f"1991-{month:02d}-01" for month in range(1, 13)]
+    climato_times = [f"{S2D_HISTORICAL_REFERENCE_YEAR}-{month:02d}-01" for month in range(1, 13)]
     climato_shape = (len(climato_times), len(grid_lats), len(grid_lons))
     climato_data = {
         var: (dims, np.random.uniform(10, 25, size=climato_shape).astype(np.float64))

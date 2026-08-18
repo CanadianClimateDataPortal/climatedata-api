@@ -8,6 +8,7 @@ from default_settings import (
     S2D_CLIMATO_DATA_VAR_NAMES,
     S2D_FORECAST_DATA_VAR_NAMES,
     S2D_FREQUENCY_SEASONAL,
+    S2D_HISTORICAL_REFERENCE_YEAR,
     S2D_VARIABLE_AIR_TEMP,
 )
 from tests.unit.utils import generate_s2d_test_datasets
@@ -47,7 +48,7 @@ class TestGetS2DGriddedValues:
     @patch("climatedata_api.utils.open_dataset_by_path")
     def test_valid_data(self, mock_open_dataset, mock_release, test_app):
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
-        skill_times = [f"1991-{month:02d}-01" for month in range(1, 13)]
+        skill_times = [f"{S2D_HISTORICAL_REFERENCE_YEAR}-{month:02d}-01" for month in range(1, 13)]
         forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(
             lat_min=43.0,
             lat_max=45.0,
@@ -85,11 +86,11 @@ class TestGetS2DGriddedValues:
                 for var in S2D_FORECAST_DATA_VAR_NAMES
             },
             **{
-                var: climato_ds[var].sel(time="1991-08-01", lat=grid_lat, lon=grid_lon).item()
+                var: climato_ds[var].sel(time=f"{S2D_HISTORICAL_REFERENCE_YEAR}-08-01", lat=grid_lat, lon=grid_lon).item()
                 for var in S2D_CLIMATO_DATA_VAR_NAMES
             },
-            "skill_level": skill_ds["skill_level"].sel(time="1991-08-01", lat=grid_lat, lon=grid_lon).item(),
-            "skill_CRPSS": skill_ds["skill_CRPSS"].sel(time="1991-08-01", lat=grid_lat, lon=grid_lon).item(),
+            "skill_level": skill_ds["skill_level"].sel(time=f"{S2D_HISTORICAL_REFERENCE_YEAR}-08-01", lat=grid_lat, lon=grid_lon).item(),
+            "skill_CRPSS": skill_ds["skill_CRPSS"].sel(time=f"{S2D_HISTORICAL_REFERENCE_YEAR}-08-01", lat=grid_lat, lon=grid_lon).item(),
         }
 
     def test_bad_params(self, test_app):
@@ -123,7 +124,7 @@ class TestGetS2DGriddedValues:
     @patch("climatedata_api.utils.open_dataset_by_path")
     def test_missing_time(self, mock_open_dataset, mock_release, test_app):
         forecast_times = [f"2025-{month:02d}-01" for month in range(3, 13)]
-        skill_times = [f"1991-{month:02d}-01" for month in range(1, 11)]
+        skill_times = [f"{S2D_HISTORICAL_REFERENCE_YEAR}-{month:02d}-01" for month in range(1, 11)]
         forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(
             lat_min=43.0,
             lat_max=45.0,
