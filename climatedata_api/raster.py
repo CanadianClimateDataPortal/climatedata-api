@@ -69,9 +69,9 @@ def get_raster(url, output_img_path, location_popup_html=None, marker_lat_lon=No
             driver.execute_script("$.fn.prepare_raster();")
 
         # Make sure the raster is ready before taking a screenshot.
-        WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "to-raster")))
+        WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ready-to-raster-here")))
         time.sleep(4)
-        driver.find_element(By.CLASS_NAME, "to-raster").screenshot(output_img_path)
+        driver.find_element(By.CLASS_NAME, "ready-to-raster-here").screenshot(output_img_path)
     finally:
         driver.quit()
 
