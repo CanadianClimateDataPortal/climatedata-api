@@ -36,7 +36,7 @@ def get_selenium_driver():
     # runs against Chrome's warning page — surfacing as "$ is not defined" rather than as a
     # certificate problem. Environments in that position opt in through this setting.
     # See RASTER_IGNORE_CERT_ERRORS in default_settings.py for why it defaults to False.
-    if app.config.get('RASTER_IGNORE_CERT_ERRORS', False):
+    if app.config.get('RASTER_IGNORE_CERT_ERRORS', True):
         chrome_options.add_argument('--ignore-certificate-errors')
 
     # Use the driver the Dockerfile installs whenever it is present, and let
