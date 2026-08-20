@@ -16,7 +16,7 @@ from tests.configs import TEST_HOST_URL
         ),
         pytest.param(
             f"{TEST_HOST_URL}/get-geomet-collection-items-links/climate-daily?"
-                    "datetime=1967-03-01 00:00:00/2016-06-13 00:00:00&STN_ID=7341|29793|47427&sortby=PROVINCE_CODE,STN_ID,LOCAL_DATE&f=csv&limit=150000&offset=0",
+                    "datetime=1967-03-01 00:00:00/2016-06-13 00:00:00&filter=properties.STN_ID%20IN%20(7341,29793,47427)&sortby=PROVINCE_CODE,STN_ID,LOCAL_DATE&f=csv&limit=150000&offset=0",
             200,
             id="get_geomet_collection_items_links-climate-daily",
         ),
