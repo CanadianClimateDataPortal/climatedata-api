@@ -817,7 +817,9 @@ def download_s2d():
         merged_slice.attrs = forecast_slice.attrs
 
         merged_slice.attrs['time_period'] = time_period_abbr
-        if freq in S2D_METADATA_FREQUENCY:
+        if freq in S2D_FREQUENCIES_DECADAL and freq in S2D_METADATA_FREQUENCY:
+            # Frequency detail only gets added for decadal data, to be more precise on which part of year is
+            # represented in the related 5-year time period.
             merged_slice.attrs['time_period'] += " " + S2D_METADATA_FREQUENCY[freq]
 
         merged_slice['lat'].attrs = lat_attrs
@@ -847,7 +849,12 @@ def download_s2d():
     try:
         with zipfile.ZipFile(zip_path, "w") as zipf:
             for time_period_abbr, ds in merged_slices.items():
-                file_basename = f"{filename_var}_{filename_forecast_type}_{filename_freq}_{time_period_abbr}_Release{filename_release_date}"
+                file_basename = f"{filename_var}_{filename_forecast_type}"
+                if freq in S2D_FREQUENCIES_DECADAL:
+                    # Frequency detail only gets added for decadal data, to be more precise on which part of year is
+                    # represented in the related 5-year time period.
+                    file_basename += f"_{filename_freq}"
+                file_basename += f"_{time_period_abbr}_Release{filename_release_date}"
 
                 if output_format == DOWNLOAD_NETCDF_FORMAT:
                     encodings = {}
