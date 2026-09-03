@@ -66,15 +66,15 @@ class TestDownloadS2D:
                 "points": requested_points
             }
 
-            expected_points = [[51.666667, -120.0], [51.666667, -138.0], [68.75, -138.0], [70.0, -98.5]]
+            expected_points = [[51.667, -120.0], [51.667, -138.0], [68.75, -138.0], [70.0, -98.5]]
             expected_lats = sorted(set([pt[0] for pt in expected_points]))
             expected_lons = sorted(set([pt[1] for pt in expected_points]))
 
         else:  # bbox
             bbox = [68.56, -140.07, 73.0, -138]  # min_lat, min_lon, max_lat, max_lon
             subset_payload = {"bbox": bbox}
-            expected_lats = [lat for lat in climato_ds.lat.values if bbox[0] <= lat <= bbox[2]]
-            expected_lons = [lon for lon in climato_ds.lon.values if bbox[1] <= lon <= bbox[3]]
+            expected_lats = [round(lat, S2D_DOWNLOAD_DECIMALS["lat"]) for lat in climato_ds.lat.values if bbox[0] <= lat <= bbox[2]]
+            expected_lons = [round(lon, S2D_DOWNLOAD_DECIMALS["lon"]) for lon in climato_ds.lon.values if bbox[1] <= lon <= bbox[3]]
             expected_points = [[lat, lon] for lat in expected_lats for lon in expected_lons]
 
         # Send request to the endpoint to be tested
@@ -214,7 +214,7 @@ class TestDownloadS2D:
                                             assert ds.sel(lat=lat, lon=lon)[var].values == S2D_SKILL_LEVEL_STR[get_expected_value(lat, lon, var, month).item()], (
                                                     f"Unexpected value for variable {var} at point ({lat}, {lon}) and month {month}")
                                         else:
-                                            assert ds.sel(lat=lat, lon=lon)[var].values == get_expected_value(lat, lon, var, month), (
+                                            assert ds.sel(lat=lat, lon=lon)[var].values == get_expected_value(lat, lon, var, month, round_value=True), (
                                                     f"Unexpected value for variable {var} at point ({lat}, {lon}) and month {month}")
                                     else:
                                         value = ds[var].sel(lat=lat, lon=lon).item()
