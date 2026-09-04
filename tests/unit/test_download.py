@@ -66,7 +66,9 @@ class TestDownloadS2D:
                 "points": requested_points
             }
 
-            expected_points = [[51.667, -120.0], [51.667, -138.0], [68.75, -138.0], [70.0, -98.5]]
+            expected_points = [[51.666667, -120.0], [51.666667, -138.0], [68.75, -138.0], [70.0, -98.5]]
+            expected_points = [[round(lat, S2D_DOWNLOAD_DECIMALS["lat"]), round(lon, S2D_DOWNLOAD_DECIMALS["lon"])]
+                               for lat, lon in expected_points]
             expected_lats = sorted(set([pt[0] for pt in expected_points]))
             expected_lons = sorted(set([pt[1] for pt in expected_points]))
 
