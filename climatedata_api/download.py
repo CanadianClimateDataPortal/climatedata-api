@@ -862,11 +862,11 @@ def download_s2d():
                         if v != "skill_level":  # compression is not supported on string variables
                             encodings[v] = {"zlib": True}
 
-                    output_ds = round_dataset(ds, S2D_DOWNLOAD_DECIMALS)
+                    round_dataset_inplace(ds, S2D_DOWNLOAD_DECIMALS)
 
                     nc_filename = f"{file_basename}.nc"
                     nc_path = os.path.join(tmpdir, nc_filename)
-                    output_ds.to_netcdf(nc_path, encoding=encodings, format='NETCDF4')
+                    ds.to_netcdf(nc_path, encoding=encodings, format='NETCDF4')
                     zipf.write(nc_path, arcname=nc_filename)
 
                 else:
@@ -905,23 +905,20 @@ def download_s2d():
     return send_file(zip_path, download_name=zip_filename, as_attachment=True, mimetype="application/zip")
 
 
-def round_dataset(ds_input: xr.Dataset, nb_decimals_by_vars: dict[str, int], nb_decimals_default: int = 1) -> xr.Dataset:
+def round_dataset_inplace(ds: xr.Dataset, nb_decimals_by_vars: dict[str, int], nb_decimals_default: int = 1) -> None:
     """
-    Rounds the float variables of the input xarray Dataset to a number of decimals.
+    Rounds the float variables of the input xarray Dataset in place, to a number of decimals.
 
-    :param ds_input: The xarray dataset to round.
+    :param ds: The xarray dataset to round.
     :param nb_decimals_by_vars: A dictionary mapping variable names with float data to the number of decimals to round to.
     :param nb_decimals_default: The default number of decimals to round the other float variables to.
     """
-    ds = ds_input.copy(deep=True)
-
     for var in list(ds.data_vars) + list(ds.coords):
         if not np.issubdtype(ds[var].dtype, np.floating):
             continue
 
         decimals = nb_decimals_by_vars.get(var, nb_decimals_default)
         ds[var] = ds[var].round(decimals)
-    return ds
 
 
 def round_df_inplace(df: pd.DataFrame, nb_decimals_by_cols: dict[str, int], nb_decimals_default: int=1) -> None:
