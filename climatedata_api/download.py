@@ -41,6 +41,7 @@ from default_settings import (
     S2D_FREQUENCY_MONTHLY,
     S2D_FREQUENCY_SEASONAL,
     S2D_HISTORICAL_REFERENCE_YEAR,
+    S2D_METADATA_FREQUENCY,
     S2D_SKILL_LEVEL_STR,
 )
 
@@ -816,6 +817,10 @@ def download_s2d():
         merged_slice.attrs = forecast_slice.attrs
 
         merged_slice.attrs['time_period'] = time_period_abbr
+        if freq in S2D_FREQUENCIES_DECADAL and freq in S2D_METADATA_FREQUENCY:
+            # Frequency detail only gets added for decadal data, to be more precise on which part of year is
+            # represented in the related 5-year time period.
+            merged_slice.attrs['time_period'] += " " + S2D_METADATA_FREQUENCY[freq]
 
         merged_slice['lat'].attrs = lat_attrs
         merged_slice['lon'].attrs = lon_attrs
@@ -844,13 +849,20 @@ def download_s2d():
     try:
         with zipfile.ZipFile(zip_path, "w") as zipf:
             for time_period_abbr, ds in merged_slices.items():
-                file_basename = f"{filename_var}_{filename_forecast_type}_{time_period_abbr}_Release{filename_release_date}"
+                file_basename = f"{filename_var}_{filename_forecast_type}"
+                if freq in S2D_FREQUENCIES_DECADAL:
+                    # Frequency detail only gets added for decadal data, to be more precise on which part of year is
+                    # represented in the related 5-year time period.
+                    file_basename += f"_{filename_freq}"
+                file_basename += f"_{time_period_abbr}_Release{filename_release_date}"
 
                 if output_format == DOWNLOAD_NETCDF_FORMAT:
                     encodings = {}
                     for v in ds.data_vars:
                         if v != "skill_level":  # compression is not supported on string variables
                             encodings[v] = {"zlib": True}
+
+                    round_dataset_inplace(ds, S2D_DOWNLOAD_DECIMALS)
 
                     nc_filename = f"{file_basename}.nc"
                     nc_path = os.path.join(tmpdir, nc_filename)
@@ -891,6 +903,22 @@ def download_s2d():
         raise e
 
     return send_file(zip_path, download_name=zip_filename, as_attachment=True, mimetype="application/zip")
+
+
+def round_dataset_inplace(ds: xr.Dataset, nb_decimals_by_vars: dict[str, int], nb_decimals_default: int = 1) -> None:
+    """
+    Rounds the float variables of the input xarray Dataset in place, to a number of decimals.
+
+    :param ds: The xarray dataset to round.
+    :param nb_decimals_by_vars: A dictionary mapping variable names with float data to the number of decimals to round to.
+    :param nb_decimals_default: The default number of decimals to round the other float variables to.
+    """
+    for var in list(ds.data_vars) + list(ds.coords):
+        if not np.issubdtype(ds[var].dtype, np.floating):
+            continue
+
+        decimals = nb_decimals_by_vars.get(var, nb_decimals_default)
+        ds[var] = ds[var].round(decimals)
 
 
 def round_df_inplace(df: pd.DataFrame, nb_decimals_by_cols: dict[str, int], nb_decimals_default: int=1) -> None:

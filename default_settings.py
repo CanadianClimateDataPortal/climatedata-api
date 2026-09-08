@@ -332,9 +332,20 @@ S2D_SKILL_LEVEL_STR = {
 S2D_DOWNLOAD_DECIMALS = {
     'lat': 3,
     'lon': 3,
+    'prob_below_normal': 1,
+    'prob_near_normal': 1,
+    'prob_above_normal': 1,
+    'prob_unusually_high': 1,
+    'prob_unusually_low': 1,
+    'cutoff_below_normal_p33': 2,
+    'cutoff_above_normal_p66': 2,
+    'cutoff_unusually_low_p20': 2,
+    'cutoff_unusually_high_p80': 2,
+    'historical_median_p50': 2,
     'skill_CRPSS': 2,
 }
 
+# Values used for naming the S2D download files
 S2D_FILENAME_VALUES = {
     S2D_VARIABLE_AIR_TEMP: 'MeanTemp',
     S2D_VARIABLE_PRECIP_ACCUM: 'TotalPrecip',
@@ -342,7 +353,14 @@ S2D_FILENAME_VALUES = {
     S2D_FORECAST_TYPE_UNUSUAL: 'UnusualCond',
     S2D_FREQUENCY_MONTHLY: 'Monthly',
     S2D_FREQUENCY_SEASONAL: 'Seasonal',
-    S2D_FREQUENCY_DECADAL_ANN: 'DecadalAnn',
-    S2D_FREQUENCY_DECADAL_MAY_SEP: 'DecadalMaySep',
-    S2D_FREQUENCY_DECADAL_NOV_MAR: 'DecadalNovMar',
+    S2D_FREQUENCY_DECADAL_ANN: 'Decadal_Ann',
+    S2D_FREQUENCY_DECADAL_MAY_SEP: 'Decadal_MJJAS',
+    S2D_FREQUENCY_DECADAL_NOV_MAR: 'Decadal_NDJFM',
+}
+
+# Frequency values used specifically in the S2D metadata download files
+S2D_METADATA_FREQUENCY = {
+    S2D_FREQUENCY_DECADAL_ANN: 'Annual',
+    S2D_FREQUENCY_DECADAL_MAY_SEP: 'MJJAS',
+    S2D_FREQUENCY_DECADAL_NOV_MAR: 'NDJFM',
 }
