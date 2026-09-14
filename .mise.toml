@@ -14,9 +14,11 @@ _.python.venv = { path = ".venv", create = true }
 # default in `default_settings.py` unchanged. An absolute path is required because
 # Flask resolves a relative one against the package directory rather than the repo root.
 CLIMATEDATA_FLASK_SETTINGS = "{{config_root}}/local_settings.py"
-
 # `mise run` (or `mise`) runs this default task. It lists the available tasks
 # and prints the same local reminders as `mise info`.
+
+RASTER_IGNORE_CERT_ERRORS = "True"
+
 [tasks.default]
 description = "List project tasks and show local reminders"
 run = ["mise tasks", "mise info"]
