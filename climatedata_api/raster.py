@@ -132,7 +132,9 @@ def post_raster_route():
     marker_lat_lon = None
 
     if request.method == 'POST':
-        args = request.get_json()
+        # JSON args are optional, because of the location popup and marker that are optionally displayed
+        # on the map and screenshot. So, don't throw an error if the JSON payload is missing or invalid.
+        args = request.get_json(silent=True)
 
         # Validate POST payload
         if args:
