@@ -11,7 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 import time
 
-from flask import send_file, request
+from flask import send_file, request, make_response
 from flask import current_app as app
 from werkzeug.exceptions import BadRequest
 
@@ -168,4 +168,12 @@ def post_raster_route():
 
     f = open(output_img_path, "rb")
     os.unlink(output_img_path)
-    return send_file(f, mimetype='image/png', as_attachment=True, download_name=f'climatedata.ca - {parsed_url.path.strip("/").replace("/","-") } - {parsed_url.query}.png')
+    response = send_file(f, mimetype='image/png', as_attachment=True, download_name=f'climatedata.ca - {parsed_url.path.strip("/").replace("/","-") } - {parsed_url.query}.png')
+
+    if request.method == 'POST':
+        response = make_response(response)
+        # Expose Content-Disposition header in CORS responses to allow browsers to access
+        # the filename from the Content-Disposition header
+        response.headers['Access-Control-Expose-Headers'] = 'Content-Disposition'
+
+    return response
