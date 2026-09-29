@@ -31,6 +31,7 @@ def get_selenium_driver():
     chrome_options.add_argument("--window-size=2560,1440")
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')  # /dev/shm can be too small within docker
+    chrome_options.add_argument('--ignore-certificate-errors')
 
     return webdriver.Chrome(service=chrome_service, options=chrome_options)
 
