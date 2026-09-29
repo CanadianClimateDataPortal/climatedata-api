@@ -271,6 +271,10 @@ ALLOWED_DOMAINS = [
 
 SALT = "override-me"
 
+# Makes Flask send "Access-Control-Allow-Origin: *" on /raster.
+# Read add_raster_cors_headers in climatedata_api/app.py before turning it on.
+RASTER_CORS_ALLOW_ORIGIN_WILDCARD = False
+
 S2D_VARIABLE_AIR_TEMP = 'air_temp'
 S2D_VARIABLE_PRECIP_ACCUM = 'precip_accum'
 
