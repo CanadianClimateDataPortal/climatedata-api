@@ -3,7 +3,7 @@ import requests
 import sentry_sdk
 from werkzeug.exceptions import BadRequest
 import xarray as xr
-from flask import Flask
+from flask import Flask, request
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 from climatedata_api.charts import generate_charts, generate_regional_charts
@@ -75,6 +75,31 @@ app.add_url_rule('/get-geomet-collection-items-links/<collectionId>', view_func=
 @app.errorhandler(BadRequest)
 def handle_bad_request(e):
     return f"Bad request: {e.description}", 400
+
+
+# CORS for /raster.
+#
+# Access-Control-Allow-Origin MUST appear exactly once per response.
+# Two copies read as "*, *", and the browser then fails every /raster
+# call at the OPTIONS preflight.
+#
+# The front server (nginx) of staging and production already sends it, so
+# RASTER_CORS_ALLOW_ORIGIN_WILDCARD stays False there.
+# Turn it on only where nothing in front of Flask sends it, such as local development.
+#
+# Expose-Headers is set by the view in raster.py, on the successful POST.
+# Match request.path: request.endpoint is None on a 405.
+# No errorhandler(Exception) here: it hides errors from Sentry.
+@app.after_request
+def add_raster_cors_headers(response):
+    if request.path == '/raster':
+        if request.method == 'OPTIONS':
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+            response.headers['Access-Control-Allow-Methods'] = 'POST'
+        if app.config['RASTER_CORS_ALLOW_ORIGIN_WILDCARD']:
+            # On every /raster answer, errors included, so the page can read the status.
+            response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 
 @app.route('/status')
