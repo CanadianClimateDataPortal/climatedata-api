@@ -9,6 +9,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
 import time
 
 from flask import send_file, request, make_response
@@ -75,7 +76,7 @@ def get_raster(url, output_img_path, location_popup_html=None, marker_lat_lon=No
         try:
             WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ready-to-raster-here")))
             raster_element = driver.find_element(By.CLASS_NAME, "ready-to-raster-here")
-        except:
+        except TimeoutException:
             raster_element = driver.find_element(By.CLASS_NAME, "to-raster")
 
         time.sleep(4)
