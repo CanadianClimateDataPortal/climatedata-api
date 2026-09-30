@@ -1,5 +1,6 @@
 import base64
 import functools
+import json
 import os
 
 from selenium import webdriver
@@ -8,9 +9,10 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
 import time
 
-from flask import send_file, request
+from flask import send_file, request, make_response
 from flask import current_app as app
 from werkzeug.exceptions import BadRequest
 
@@ -30,11 +32,12 @@ def get_selenium_driver():
     chrome_options.add_argument("--window-size=2560,1440")
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')  # /dev/shm can be too small within docker
+    chrome_options.add_argument('--ignore-certificate-errors')
 
     return webdriver.Chrome(service=chrome_service, options=chrome_options)
 
 
-def get_raster(url, output_img_path):
+def get_raster(url, output_img_path, location_popup_html=None, marker_lat_lon=None):
     """
         Raster the "explore location" chart.
         Notes: * URL is encoded using tools/encoder.html
@@ -47,7 +50,11 @@ def get_raster(url, output_img_path):
             curl 'http://localhost:5000/raster?url=aHR0cHM6Ly9jbGltYXRlZGF0YS5jcmltLmNhL2V4cGxvcmUvbG9jYXRpb24vP2xvYz1FRkpHVSZsb2NhdGlvbi1zZWxlY3QtdGVtcGVyYXR1cmU9dHhfbWF4JmxvY2F0aW9uLXNlbGVjdC1wcmVjaXBpdGF0aW9uPXIxbW0mbG9jYXRpb24tc2VsZWN0LW90aGVyPWZyb3N0X2RheXN8LTQwOTIzNzYwOQ%3D%3D'  > output.png
 
         :param url: URL to raster
-        :param output_img_path: output path of the raster
+        :param output_img_path: Output path of the raster
+        :param location_popup_html: Optional array of HTML strings to pass to JavaScript.
+                                    See `post_raster_route()` for details.
+        :param marker_lat_lon: Optional [lat, lon] pair to pass to JavaScript.
+                               See `post_raster_route()` for details.
     """
     driver = get_selenium_driver()
     driver.get(url)
@@ -55,12 +62,25 @@ def get_raster(url, output_img_path):
     try:
         WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.TAG_NAME, "body")))
         time.sleep(1)
-        driver.execute_script("$.fn.prepare_raster();")
+
+        # Call prepare_raster with optional parameters
+        if location_popup_html is not None and marker_lat_lon is not None:
+            script = f"$.fn.prepare_raster({json.dumps(location_popup_html)}, {json.dumps(marker_lat_lon)});"
+            driver.execute_script(script)
+        else:
+            driver.execute_script("$.fn.prepare_raster();")
 
         # Make sure the raster is ready before taking a screenshot.
-        WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "to-raster")))
+        # Try the new class name first, then fall back to the old class name for backward compatibility
+        raster_element = None
+        try:
+            WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "ready-to-raster-here")))
+            raster_element = driver.find_element(By.CLASS_NAME, "ready-to-raster-here")
+        except TimeoutException:
+            raster_element = driver.find_element(By.CLASS_NAME, "to-raster")
+
         time.sleep(4)
-        driver.find_element(By.CLASS_NAME, "to-raster").screenshot(output_img_path)
+        raster_element.screenshot(output_img_path)
     finally:
         driver.quit()
 
@@ -98,11 +118,49 @@ def decode_and_validate_url(encoded_url):
     return url
 
 
-def get_raster_route():
+def post_raster_route():
     """
-        Validate encoded URL and perform raster if valid
-        :return: response containing the output image
+        Validate encoded URL and render a raster image if valid
+        This route accepts a POST JSON payload that is passed to the Javascript to render the raster:
+        - locationPopupHtml: Array of 1 or 2 strings each containing the HTML content of a location popup displayed on the map.
+                             Supports 2 distinct popups, for the case of comparing scenarios on the map.
+        - markerLatLon : Array of 2 floats containing the lat/lon coordinates of the marker displayed on the map.
+                         Note that when comparing scenarios, they both use the same lat/long coordinates for the marker.
+        These elements have to be passed separately from the encoded URL, since they are not embedded in the url and
+        need to be specifically recreated after opening the URL on the headless browser to prepare the screenshot.
+
+        Example POST payload:
+        {
+            'locationPopupHtml' : ["<div>Test</div>", "<div>Test 2</div>"]',
+            'markerLatLon': [45.6323,-73.8124],
+        }
+
+        :return: Response containing the output image
     """
+    location_popup_html = None
+    marker_lat_lon = None
+
+    if request.method == 'POST':
+        # JSON args are optional, because of the location popup and marker that are optionally displayed
+        # on the map and screenshot. So, don't throw an error if the JSON payload is missing or invalid.
+        args = request.get_json(silent=True)
+
+        # Validate POST payload
+        if args:
+            location_popup_html_raw = args.get('locationPopupHtml')
+            if location_popup_html_raw is not None:
+                if isinstance(location_popup_html_raw, list) and 1 <= len(location_popup_html_raw) <= 2:
+                    if all(isinstance(item, str) for item in location_popup_html_raw):
+                        location_popup_html = location_popup_html_raw
+
+            marker_raw = args.get('markerLatLon')
+            if marker_raw is not None:
+                if isinstance(marker_raw, (list, tuple)) and len(marker_raw) == 2:
+                    try:
+                        marker_lat_lon = [float(marker_raw[0]), float(marker_raw[1])]
+                    except (ValueError, TypeError):
+                        pass
+
     encoded_url = request.args.get('url')
     url = decode_and_validate_url(encoded_url)
     parsed_url = urlparse(url)
@@ -115,8 +173,16 @@ def get_raster_route():
 
     output_img_path = "/tmp/" + str(uuid.uuid4()) + ".png"
 
-    get_raster(url, output_img_path)
+    get_raster(url, output_img_path, location_popup_html, marker_lat_lon)
 
     f = open(output_img_path, "rb")
     os.unlink(output_img_path)
-    return send_file(f, mimetype='image/png', as_attachment=True, download_name=f'climatedata.ca - {parsed_url.path.strip("/").replace("/","-") } - {parsed_url.query}.png')
+    response = send_file(f, mimetype='image/png', as_attachment=True, download_name=f'climatedata.ca - {parsed_url.path.strip("/").replace("/","-") } - {parsed_url.query}.png')
+
+    if request.method == 'POST':
+        response = make_response(response)
+        # Expose Content-Disposition header in CORS responses to allow browsers to access
+        # the filename from the Content-Disposition header
+        response.headers['Access-Control-Expose-Headers'] = 'Content-Disposition'
+
+    return response

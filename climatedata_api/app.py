@@ -19,7 +19,7 @@ from climatedata_api.map import (get_allowance_gridded_values,
                                  get_s2d_release_date,
                                  get_s2d_gridded_values)
 from climatedata_api.siteinfo import (get_location_values)
-from climatedata_api.raster import get_raster_route
+from climatedata_api.raster import post_raster_route
 from climatedata_api.utils import generate_kdtrees
 
 pd.set_option('display.max_rows', 10000)
@@ -65,7 +65,7 @@ app.add_url_rule('/download-s2d', view_func=download_s2d, methods=['POST'])
 app.add_url_rule('/get-location-values/<lat>/<lon>', view_func=get_location_values)
 
 # raster routes
-app.add_url_rule('/raster', view_func=get_raster_route)
+app.add_url_rule('/raster', view_func=post_raster_route, methods=['GET', 'POST'])
 
 # geomet routes
 app.add_url_rule('/get-geomet-collection-items-links/<collectionId>', view_func=get_geomet_collection_download_links)
