@@ -458,20 +458,11 @@ class TestGetTimePeriodMetadata:
         result = get_time_period_metadata(S2D_FREQUENCY_SEASONAL, 2026, 12)
         assert result == "Dec-Feb / Déc-Fév"
 
-    def test_get_time_period_metadata_decadal_ann(self):
-        result = get_time_period_metadata(S2D_FREQUENCY_DECADAL_ANN, 2026, 1)
-        expected = f"2026-2030 {S2D_METADATA_FREQUENCY[S2D_FREQUENCY_DECADAL_ANN]} / 2026-2030 {S2D_METADATA_FREQUENCY_FR[S2D_FREQUENCY_DECADAL_ANN]}"
-        assert result == expected
-
-    def test_get_time_period_metadata_decadal_may_sep(self):
-        result = get_time_period_metadata(S2D_FREQUENCY_DECADAL_MAY_SEP, 2025, 1)
-        expected = f"2025-2029 {S2D_METADATA_FREQUENCY[S2D_FREQUENCY_DECADAL_MAY_SEP]} / 2025-2029 {S2D_METADATA_FREQUENCY_FR[S2D_FREQUENCY_DECADAL_MAY_SEP]}"
-        assert result == expected
-
-    def test_get_time_period_metadata_decadal_nov_mar(self):
-        result = get_time_period_metadata(S2D_FREQUENCY_DECADAL_NOV_MAR, 2020, 1)
-        expected = f"2020-2024 {S2D_METADATA_FREQUENCY[S2D_FREQUENCY_DECADAL_NOV_MAR]} / 2020-2024 {S2D_METADATA_FREQUENCY_FR[S2D_FREQUENCY_DECADAL_NOV_MAR]}"
-        assert result == expected
+    def test_get_time_period_metadata_decadal(self):
+        for freq in [S2D_FREQUENCY_DECADAL_ANN, S2D_FREQUENCY_DECADAL_MAY_SEP, S2D_FREQUENCY_DECADAL_NOV_MAR]:
+            result = get_time_period_metadata(freq, 2026, 1)
+            expected = f"2026-2030 {S2D_METADATA_FREQUENCY[freq]} / 2026-2030 {S2D_METADATA_FREQUENCY_FR[freq]}"
+            assert result == expected
 
     def test_get_time_period_metadata_invalid_freq(self):
         """Test get_time_period_metadata with invalid frequency."""
