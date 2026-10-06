@@ -42,6 +42,7 @@ from default_settings import (
     S2D_FREQUENCY_SEASONAL,
     S2D_HISTORICAL_REFERENCE_YEAR,
     S2D_METADATA_FREQUENCY,
+    S2D_METADATA_FREQUENCY_FR,
     S2D_SKILL_LEVEL_STR,
 )
 
@@ -816,12 +817,7 @@ def download_s2d():
         # Ensure we keep the forecast's global attributes
         merged_slice.attrs = forecast_slice.attrs
 
-        merged_slice.attrs['time_period'] = time_period_abbr
-        if freq in S2D_FREQUENCIES_DECADAL and freq in S2D_METADATA_FREQUENCY:
-            # Frequency detail only gets added for decadal data, to be more precise on which part of year is
-            # represented in the related 5-year time period.
-            merged_slice.attrs['time_period'] += " " + S2D_METADATA_FREQUENCY[freq]
-
+        merged_slice.attrs['time_period'] = get_time_period_metadata(freq, year, month)
         merged_slice['lat'].attrs = lat_attrs
         merged_slice['lon'].attrs = lon_attrs
 
@@ -960,19 +956,47 @@ def write_metadata_file(path: str, dataset: xr.Dataset) -> None:
                 f.write(f"{key}: {value}\n")
 
 
-def get_time_period_abbr(freq: str, year: int, month: int) -> str:
+def get_time_period_abbr(freq: str, year: int, month: int, fr: bool=False) -> str:
     """
     Returns the time period abbreviation based on frequency and month.
+    Return the abbreviation in french if the 'fr' parameter is activated.
     """
+    MONTH_ABBR_FR = [  # 1-based array, so first entry is empty
+        "", "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
+        "Juil", "Août", "Sep", "Oct", "Nov", "Déc"
+    ]
+
     if freq == S2D_FREQUENCY_MONTHLY:
-        time_period_abbr = calendar.month_abbr[month]
+        if fr:
+            time_period_abbr = MONTH_ABBR_FR[month]
+        else:
+            time_period_abbr = calendar.month_abbr[month]
     elif freq == S2D_FREQUENCY_SEASONAL:
-        time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 1) % 12 + 1]}"
+        if fr:
+            time_period_abbr = f"{MONTH_ABBR_FR[month]}-{MONTH_ABBR_FR[(month + 1) % 12 + 1]}"
+        else:
+            time_period_abbr = f"{calendar.month_abbr[month]}-{calendar.month_abbr[(month + 1) % 12 + 1]}"
     elif freq in S2D_FREQUENCIES_DECADAL:
         time_period_abbr = f"{year}-{year + 4}"
     else:
         raise ValueError(f"Invalid frequency `{freq}`")
     return time_period_abbr
+
+
+def get_time_period_metadata(freq: str, year: int, month: int) -> str:
+    """
+    Returns the time period metadata, formatted for the related frequency.
+    """
+    time_period_meta = get_time_period_abbr(freq, year, month)
+    if freq in S2D_FREQUENCIES_DECADAL and freq in S2D_METADATA_FREQUENCY:
+        # Frequency detail only gets added for decadal data, to be more precise on which part of year is
+        # represented in the related 5-year time period.
+        time_period_meta += " " + S2D_METADATA_FREQUENCY[freq]
+
+    time_period_meta += " / " + get_time_period_abbr(freq, year, month, fr=True)
+    if freq in S2D_FREQUENCIES_DECADAL and freq in S2D_METADATA_FREQUENCY_FR:
+        time_period_meta += " " + S2D_METADATA_FREQUENCY_FR[freq]
+    return time_period_meta
 
 
 def drop_unused_s2d_data_variables(dataset: xr.Dataset, forecast_type: str) -> xr.Dataset:
