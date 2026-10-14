@@ -92,6 +92,37 @@ class TestGetS2DGriddedValues:
             "skill_CRPSS": skill_ds["skill_CRPSS"].sel(time="1991-08-01", lat=grid_lat, lon=grid_lon).item(),
         }
 
+    @patch("climatedata_api.map.retrieve_s2d_release_date", return_value="2025-01-01")
+    @patch("climatedata_api.utils.open_dataset_by_path")
+    def test_all_nan_location(self, mock_open_dataset, mock_release, test_app):
+        """Should return 404 if every value at the nearest grid cell is NaN (point outside the S2D domain)."""
+        forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
+        skill_times = [f"1991-{month:02d}-01" for month in range(1, 13)]
+        forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(
+            lat_min=43.0,
+            lat_max=45.0,
+            lon_min=-140.0,
+            lon_max=-138.0,
+            forecast_times=forecast_times,
+            skill_times=skill_times
+        )
+
+        # Fill every data variable with NaN, like the masked cells outside the S2D domain
+        for ds in (forecast_ds, climato_ds, skill_ds):
+            for var in ds.data_vars:
+                ds[var] = xr.full_like(ds[var], np.nan, dtype=np.float64)
+
+        mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
+
+        requested_lat = 43.77
+        requested_lon = -139.07
+
+        with test_app.test_request_context(query_string={"period": "2025-08"}):
+            response, status = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL)
+
+        assert status == 404
+        assert response == "Location not found"
+
     def test_bad_params(self, test_app):
         """Should return 400 if a param is not allowed."""
 

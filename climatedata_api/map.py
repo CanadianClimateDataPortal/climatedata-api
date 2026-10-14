@@ -305,4 +305,12 @@ def get_s2d_gridded_values(lat, lon, var, freq):
             (S2D_CLIMATO_DATA_VAR_NAMES, climatology_slice),
             (S2D_SKILL_DATA_VAR_NAMES, skill_slice)]:
         values.update({var: dataset[var].item() for var in var_list})
+
+    # return 404 when every value is NaN, to avoid "NaN" in the response.
+    # The nearest-cell selection above has no tolerance, so a point outside the S2D domain
+    # still lands on the nearest grid cell, and that cell holds NaN. NaN is not valid JSON (RFC 8259),
+    # so clients fail to parse the response.
+    if all(np.isnan(value) for value in values.values()):
+        return "Location not found", 404
+
     return values
