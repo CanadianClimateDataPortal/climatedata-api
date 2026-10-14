@@ -108,7 +108,7 @@ class TestGetS2DGriddedValues:
             skill_times=skill_times
         )
 
-        # Fill every data variable with NaN, like the masked cells outside the S2D domain
+        # Masked cells outside the S2D domain hold NaN.
         for ds in (forecast_ds, climato_ds, skill_ds):
             for var in ds.data_vars:
                 ds[var] = xr.full_like(ds[var], np.nan, dtype=np.float64)
