@@ -369,8 +369,11 @@ def negotiated_response(value, status=200):
 
     best = httpReq.accept_mimetypes.best_match(["application/json", "text/plain"])
     if best == "text/plain" and isinstance(value, str):
-        return HTTPResponse(value, status=status, mimetype="text/plain")
+        response = HTTPResponse(value, status=status, mimetype="text/plain")
+    else:
+        response = jsonify(value)
+        response.status_code = status
 
-    response = jsonify(value)
-    response.status_code = status
+    # The body depends on the Accept header, so caches must key on it (RFC 9110 section 12.5.5)
+    response.vary.add("Accept")
     return response
