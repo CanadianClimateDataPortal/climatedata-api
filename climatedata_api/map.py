@@ -307,7 +307,7 @@ def get_s2d_gridded_values(lat, lon, var, freq):
         values.update({var: dataset[var].item() for var in var_list})
 
     # Outside the S2D domain, the nearest cell holds NaN, and NaN is not valid JSON.
-    if all(np.isnan(value) for value in values.values()):
-        return "Location not found", 404
+    if any(np.isnan(value) for value in values.values()):
+        return "No data available for the requested coordinates", 404
 
     return values
