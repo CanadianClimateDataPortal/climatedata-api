@@ -230,6 +230,7 @@ class TestNegotiatedResponse:
         assert response.status_code == 404
         assert response.mimetype == "application/json"
         assert response.get_json() == "message"
+        assert "Accept" in response.vary
 
     def test_text_plain_with_dict(self, test_app):
         """Should return JSON when text/plain is preferred but the value is not a str."""
@@ -239,6 +240,7 @@ class TestNegotiatedResponse:
         assert response.status_code == 200
         assert response.mimetype == "application/json"
         assert response.get_json() == {"key": 1.5}
+        assert "Accept" in response.vary
 
     @pytest.mark.parametrize("accept", ["text/plain", "text/*"])
     def test_text_plain_with_str(self, accept, test_app):
@@ -249,6 +251,7 @@ class TestNegotiatedResponse:
         assert response.status_code == 404
         assert response.mimetype == "text/plain"
         assert response.get_data(as_text=True) == "message"
+        assert "Accept" in response.vary
 
     def test_error_with_non_str(self, test_app):
         """Should raise TypeError if an error status is given a non-str value."""
