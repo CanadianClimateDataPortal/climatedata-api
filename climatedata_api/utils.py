@@ -6,6 +6,7 @@ from typing import Tuple
 import xarray as xr
 from clisops.core.subset import subset_bbox
 from flask import current_app as app
+from flask import Response, jsonify, request
 import geopandas as gpd
 from scipy.spatial import KDTree
 import pickle
@@ -336,3 +337,23 @@ def retrieve_s2d_release_date(var, freq):
 
     latest_datetime = dataset['time'].min().values
     return str(latest_datetime.astype('datetime64[D]'))
+
+
+def negotiated_response(value, status=200):
+    """
+    Return value as JSON, or as text/plain when the client prefers it and value is a str.
+    Error responses (status >= 400) take a str message only.
+    """
+    if status >= 400 and not isinstance(value, str):
+        raise TypeError("Error responses take a str message")
+
+    best = request.accept_mimetypes.best_match(["application/json", "text/plain"])
+    if best == "text/plain" and isinstance(value, str):
+        response = Response(value, status=status, mimetype="text/plain")
+    else:
+        response = jsonify(value)
+        response.status_code = status
+
+    # The body depends on the Accept header, so caches must key on it (RFC 9110 section 12.5.5)
+    response.vary.add("Accept")
+    return response

@@ -11,6 +11,7 @@ from climatedata_api.utils import (
     open_dataset_by_path,
     decode_compressed_points,
     load_s2d_datasets_by_periods,
+    negotiated_response,
     retrieve_s2d_release_date,
 )
 import pickle
@@ -305,4 +306,9 @@ def get_s2d_gridded_values(lat, lon, var, freq):
             (S2D_CLIMATO_DATA_VAR_NAMES, climatology_slice),
             (S2D_SKILL_DATA_VAR_NAMES, skill_slice)]:
         values.update({var: dataset[var].item() for var in var_list})
+
+    # Outside the S2D grid, the nearest cell holds NaN, and NaN is not valid JSON.
+    if any(np.isnan(value) for value in values.values()):
+        return negotiated_response("No data available for the requested coordinates", 404)
+
     return values
