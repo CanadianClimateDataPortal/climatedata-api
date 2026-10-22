@@ -104,7 +104,7 @@ class TestGetS2DGriddedValues:
     def test_all_nan_location(self, mock_open_dataset, mock_release, accept, mimetype, decode, test_app):
         """Should return 404 if every value at the nearest grid cell is NaN (point outside the S2D grid)."""
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
-        skill_times = [f"1991-{month:02d}-01" for month in range(1, 13)]
+        skill_times = [f"{S2D_HISTORICAL_REFERENCE_YEAR}-{month:02d}-01" for month in range(1, 13)]
         forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(
             lat_min=43.0,
             lat_max=45.0,
@@ -136,7 +136,7 @@ class TestGetS2DGriddedValues:
     def test_partial_nan_location(self, mock_open_dataset, mock_release, test_app):
         """Should return 404 if only some values at the nearest grid cell are NaN."""
         forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
-        skill_times = [f"1991-{month:02d}-01" for month in range(1, 13)]
+        skill_times = [f"{S2D_HISTORICAL_REFERENCE_YEAR}-{month:02d}-01" for month in range(1, 13)]
         forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(
             lat_min=43.0,
             lat_max=45.0,
