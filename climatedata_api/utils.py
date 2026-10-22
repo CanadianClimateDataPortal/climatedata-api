@@ -3,6 +3,7 @@ import io
 import math
 from typing import Tuple
 
+import xarray as xr
 from clisops.core.subset import subset_bbox
 from dateutil.relativedelta import relativedelta
 
@@ -11,11 +12,10 @@ from flask import Response as HTTPResponse
 from flask import jsonify
 from flask import request as httpReq
 
-from scipy.spatial import KDTree
 import geopandas as gpd
-import numpy as np
+from scipy.spatial import KDTree
 import pickle
-import xarray as xr
+import numpy as np
 import zipfile
 
 from default_settings import S2D_HISTORICAL_REFERENCE_YEAR
