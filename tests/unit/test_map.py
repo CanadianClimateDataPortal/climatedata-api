@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import xarray as xr
 from unittest.mock import patch
 import json
@@ -93,6 +94,72 @@ class TestGetS2DGriddedValues:
             "skill_CRPSS": skill_ds["skill_CRPSS"].sel(time=f"{S2D_HISTORICAL_REFERENCE_YEAR}-08-01", lat=grid_lat, lon=grid_lon).item(),
         }
 
+    @pytest.mark.parametrize("accept, mimetype, decode", [
+        ("application/json", "application/json", json.loads),
+        ("text/plain", "text/plain", str),
+    ])
+    @patch("climatedata_api.map.retrieve_s2d_release_date", return_value="2025-01-01")
+    @patch("climatedata_api.utils.open_dataset_by_path")
+    def test_all_nan_location(self, mock_open_dataset, mock_release, accept, mimetype, decode, test_app):
+        """Should return 404 if every value at the nearest grid cell is NaN (point outside the S2D grid)."""
+        forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
+        skill_times = [f"{S2D_HISTORICAL_REFERENCE_YEAR}-{month:02d}-01" for month in range(1, 13)]
+        forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(
+            lat_min=43.0,
+            lat_max=45.0,
+            lon_min=-140.0,
+            lon_max=-138.0,
+            forecast_times=forecast_times,
+            skill_times=skill_times
+        )
+
+        # Masked cells outside the S2D grid hold NaN.
+        for ds in (forecast_ds, climato_ds, skill_ds):
+            for var in ds.data_vars:
+                ds[var] = xr.full_like(ds[var], np.nan, dtype=np.float64)
+
+        mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
+
+        requested_lat = 43.77
+        requested_lon = -139.07
+
+        with test_app.test_request_context(query_string={"period": "2025-08"}, headers={"Accept": accept}):
+            response = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL)
+
+        assert response.status_code == 404
+        assert response.mimetype == mimetype
+        assert decode(response.get_data(as_text=True)) == "No data available for the requested coordinates"
+
+    @patch("climatedata_api.map.retrieve_s2d_release_date", return_value="2025-01-01")
+    @patch("climatedata_api.utils.open_dataset_by_path")
+    def test_partial_nan_location(self, mock_open_dataset, mock_release, test_app):
+        """Should return 404 if only some values at the nearest grid cell are NaN."""
+        forecast_times = [f"2025-{month:02d}-01" for month in range(1, 13)]
+        skill_times = [f"{S2D_HISTORICAL_REFERENCE_YEAR}-{month:02d}-01" for month in range(1, 13)]
+        forecast_ds, climato_ds, skill_ds = generate_s2d_test_datasets(
+            lat_min=43.0,
+            lat_max=45.0,
+            lon_min=-140.0,
+            lon_max=-138.0,
+            forecast_times=forecast_times,
+            skill_times=skill_times
+        )
+
+        # The forecast stays valid, only the skill dataset holds NaN.
+        for var in skill_ds.data_vars:
+            skill_ds[var] = xr.full_like(skill_ds[var], np.nan, dtype=np.float64)
+
+        mock_open_dataset.side_effect = [forecast_ds, climato_ds, skill_ds]
+
+        requested_lat = 43.77
+        requested_lon = -139.07
+
+        with test_app.test_request_context(query_string={"period": "2025-08"}, headers={"Accept": "application/json"}):
+            response = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL)
+
+        assert response.status_code == 404
+        assert response.get_json() == "No data available for the requested coordinates"
+
     def test_bad_params(self, test_app):
         """Should return 400 if a param is not allowed."""
 
@@ -151,3 +218,6 @@ class TestGetS2DGriddedValues:
             response, status = get_s2d_gridded_values(requested_lat, requested_lon, S2D_VARIABLE_AIR_TEMP, S2D_FREQUENCY_SEASONAL)
         assert status == 400
         assert isinstance(response, ValueError) and "not available in skill dataset" in str(response)
+
+
+

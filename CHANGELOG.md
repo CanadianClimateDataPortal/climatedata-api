@@ -1,3 +1,6 @@
+2026-10-14.01
+  * Return 404 from get-s2d-gridded-values when any value at the location is NaN, as JSON or text/plain from the Accept header
+
 2023-07-17.01
   * Added 30y averages to anusplin dataset
 

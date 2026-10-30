@@ -3,14 +3,19 @@ import io
 import math
 from typing import Tuple
 
+import xarray as xr
 from clisops.core.subset import subset_bbox
 from dateutil.relativedelta import relativedelta
+
 from flask import current_app as app
-from scipy.spatial import KDTree
+from flask import Response as HTTPResponse
+from flask import jsonify
+from flask import request as httpReq
+
 import geopandas as gpd
-import numpy as np
+from scipy.spatial import KDTree
 import pickle
-import xarray as xr
+import numpy as np
 import zipfile
 
 from default_settings import S2D_HISTORICAL_REFERENCE_YEAR
@@ -352,3 +357,23 @@ def retrieve_s2d_release_date(var, freq):
 
     latest_datetime = dataset['time'].min().values
     return str(latest_datetime.astype('datetime64[D]'))
+
+
+def negotiated_response(value, status=200):
+    """
+    Return value as JSON, or as text/plain when the client prefers it and value is a str.
+    Error responses (status >= 400) take a str message only.
+    """
+    if status >= 400 and not isinstance(value, str):
+        raise TypeError("Error responses take a str message")
+
+    best = httpReq.accept_mimetypes.best_match(["application/json", "text/plain"])
+    if best == "text/plain" and isinstance(value, str):
+        response = HTTPResponse(value, status=status, mimetype="text/plain")
+    else:
+        response = jsonify(value)
+        response.status_code = status
+
+    # The body depends on the Accept header, so caches must key on it (RFC 9110 section 12.5.5)
+    response.vary.add("Accept")
+    return response
